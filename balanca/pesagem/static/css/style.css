@@ -1,0 +1,181 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(4, auto);
+    gap: 10px;
+    padding: 20px;
+}
+
+.header {
+    grid-column: span 6;
+    background-color: #0C8B1A;
+    padding: 10px;
+    text-align: center;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.box {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.box h3 {
+    margin-top: 0;
+    background-color: #e0e0e0;
+    padding: 5px;
+    font-size: 14px;
+    text-align: center;
+    border-radius: 3px;
+}
+
+.input-small {
+    width: 60px;
+    text-align: center;
+    padding: 3px;
+}
+
+select, input[type="text"] {
+    padding: 5px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Ajuste para a caixa de tráfego */
+.traffic-light {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.traffic-light div {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #ff0000;
+}
+
+.traffic-light .fechado {
+    background-color: #ff9900;
+}
+
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+button {
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+    width: 100px;
+}
+
+button.cancel {
+    background-color: red;
+}
+
+.formula {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    margin-top: 10px;
+}
+
+.formula div {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+    background-color: #f9f9f9;
+}
+
+.status {
+    background-color: #0047ab;
+    color: white;
+    padding: 15px;
+    text-align: center;
+    font-size: 18px;
+    margin-top: 10px;
+}
+
+/* Layout Específico */
+.ponto-controle {
+    grid-column: 1 / span 2;
+}
+
+.buttons-functions { 
+     width: 10px;
+     height: 10px;
+     padding: 10px;
+}
+
+.identificacao {
+    grid-column: 3 / span 2;
+}
+
+.balanca {
+    grid-column: 5 / span 1;
+}
+
+.automacao {
+    grid-column: 6 / span 1;
+}
+
+.informacao-mca {
+    grid-column: 1 / span 2;
+    grid-row: 2;
+}
+
+.lado-a {
+    grid-column: 3 / span 2;
+    grid-row: 2;
+}
+
+.lado-b {
+    grid-column: 5 / span 1;
+    grid-row: 2;
+}
+
+.sensores {
+    grid-column: 6 / span 1;
+    grid-row: 2;
+}
+
+.dosador {
+    grid-column: 1 / span 2;
+    grid-row: 3;
+}
+
+.programacao-formula {
+    grid-column: 3 / span 3;
+    grid-row: 3;
+}
+
+.painel-testes {
+    grid-column: 6 / span 1;
+    grid-row: 3;
+}
+
+.botoes {
+    grid-column: 1 / span 3;
+    grid-row: 4;
+}
+
+.status-bar {
+    grid-column: 4 / span 3;
+    grid-row: 4;
+}

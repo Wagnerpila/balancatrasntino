@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Pesagem</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+
+<div class="header">
+    SISTEMA DE PESAGEM
+</div>
+
+<div class="container">
+    <!-- Ponto de Controle -->
+    <div class="box ponto-controle">
+        <h3>Ponto de controle</h3>
+        <select id="ponto-controle-select" onchange="redirecionar()">
+            <option value="">Selecione...</option>
+            <option value="{% url 'pesagem_final' %}">PONTO_PESAGEM_FINAL</option>
+        </select>
+        <div class="buttons-functions"></div>
+    </div>
+    <script>
+        function redirecionar() {
+            var select = document.getElementById("ponto-controle-select");
+            var url = select.value;
+            if (url) { // se uma url foi selecionada 
+                window.location.href = url; //redirecionar para a pagina selecionada
+            }
+        }
+    </script>
+
+    <!-- Identificação -->
+    <div class="box identificacao">
+        <h3>Identificação</h3>
+        <div>Veículo: {% if veiculo %}{{ veiculo.placa }}{% else %}Não identificado{% endif %}</div>
+        <div>Carreta: {% if veiculo %}{{ veiculo.carreta }}{% else %}Não identificado{% endif %}</div>        
+    <input type="text" value="{% if ticket %}{{ ticket.id }}{% else %}N/A{% endif %}" class="input-small">
+</div>
+
+    <!-- Balança -->
+    <div class="box balanca">
+        <h3>Balança</h3>
+        <div>Estado: Balança estável</div>
+        {% if peso_inicial %}
+            <div style="font-size: 24px; color: red;">{{ peso_inicial }} Kg</div>
+        {% else %}
+            <div style="font-size: 24px; color: red;">Peso não registrado</div>
+        {% endif %}
+    </div>
+
+    <!-- Mensagens -->
+    <div class="box mensagens">
+        <h3>Mensagens</h3>
+        <ul>
+            {% for message in messages %}
+                <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Automação -->
+    <div class="box automacao">
+        <h3>Automação</h3>
+        <div>Estado automação: <span style="color: green;">•</span></div>
+        <div><input type="checkbox" {% if automacao.pesagem_ferroviaria %}checked{% endif %}> Pesagem ferroviária</div>
+        <div><input type="checkbox" {% if automacao.modo_tombador %}checked{% endif %}> Modo tombador</div>
+    </div>
+
+    <!-- Informações do MCA -->
+    <div class="box informacao-mca">
+        <h3>Informação do MCA</h3>
+        <div>Versão do MCA: {{ mca.versao }}</div>
+        <div>Impressor: {% if mca.impressor %}Ligado{% else %}Desligado{% endif %}</div>
+        <div>Configuração: {{ mca.configuracao }}</div>
+        <div>Último evento: {{ mca.ultimo_evento }}</div>
+        <div>Modo de operação: {{ mca.modo_operacao }}</div>
+        <div>Segmento utilizados: {{ mca.segmento_inicio }} ao {{ mca.segmento_fim }}</div>
+    </div>
+
+    <!-- Lado A e Lado B -->
+    <div class="box lado-a">
+        <h3>Lado A</h3>
+        <div style="font-size: 24px; color: red;">{{ lado_a.peso }} Kg</div>
+        <div class="traffic-light">
+            <div>Externo</div>
+            <div class="{% if lado_a.externo == 'Fechado' %}fechado{% else %}aberto{% endif %}">{{ lado_a.externo }}</div>
+            <div>Interno</div>
+        </div>
+    </div>
+
+    <div class="box lado-b">
+        <h3>Lado B</h3>
+        <div style="font-size: 24px; color: red;">{{ lado_b.peso }} Kg</div>
+        <div class="traffic-light">
+            <div>Interno</div>
+            <div class="{% if lado_b.interno == 'Fechado'%}fechado{% else %}aberto{% endif %}">{{ lado_b.interno }}</div>
+            <div>Externo</div>
+        </div>
+    </div>
+
+    <!-- Sensores -->
+    <div class="box sensores">
+        <h3>Sensores</h3>
+        <div>Transversais: {{ sensores.transversais }}</div>
+        <div>Longitudinais: {{ sensores.longitudinais }}</div>
+        <div>Acesso: {% if sensores.acesso%}Liberado{% else %}Não Liberado{% endif %}</div>
+    </div>
+
+    <!-- Dosador -->
+    <div class="box dosador">
+        <h3>Dosador</h3>
+        <div>Peso online: <span>{{ dosador.peso_online }}</span></div>
+    </div>
+
+    <!-- Programação da Fórmula da Dosagem -->
+    <div class="box programacao-formula">
+        <h3>Programação da fórmula da Dosagem</h3>
+        <div class="formula">
+            <div>Alvo (kg)</div>
+            <div>{{ dosador.alvo }}</div>
+            <div>Lenta (kg)</div>
+            <div>{{ dosador.lenta }}</div>
+            <div>Corte (kg)</div>
+            <div>{{ dosador.corte }}</div>
+        </div>
+        <div class="formula">
+            <div>Peso dosado (kg)</div>
+            <div>{{ dosador.peso_dosado }}</div>
+            <div>Tara adosagem (kg)</div>
+            <div>{{ dosador.tara }}</div>
+        </div>
+    </div>
+
+    <!-- Testes -->
+    <div class="box painel-testes">
+        <h3>Testes</h3>
+        <div>Painel A: {{ testes.painel_a }}</div>
+        <div>Painel B: {{ testes.painel_b }}</div>
+    </div>
+
+    <!-- Botões -->
+    <div class="box botoes button-group">
+        <button>Para</button>
+        <button>Terminar</button>
+        <button class="cancel">Cancela</button>
+        <button><a href="{% url 'cadastro' %}">Cadastro</a></button>
+        <button><a href="{% url 'pesagem_final' %}">Pesagem final</a></button>
+        <button><a href="{% url 'operacional' %}">Operação pesagem</a></button>
+        <button><a href="{% url 'relatorios' %}">Relatório pesagem</a></button>
+    </div>
+
+    <!-- Status -->
+    <div class="box status-bar">
+        {{ status }}
+    </div>
+
+</div>
+
+</body>
+</html>

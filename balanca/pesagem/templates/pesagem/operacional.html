@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operacional - Fotos OCR</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #E5E5E5;
+        }
+
+        .container {
+            width: 90%;
+            margin: 20px auto;
+        }
+
+        .table-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background-color: #0B144D;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        td img {
+            width: 50px;
+            height: auto;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        .checkmark {
+            color: green;
+            font-weight: bold;
+        }
+
+        .section-title {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+
+        .photo-grid {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .photo-grid .photo-item {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .photo-grid .photo-item img {
+            width: 120px;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        .photo-grid .photo-item p {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Seção Operacional -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data e hora</th>
+                        <th>Operação</th>
+                        <th>Estado da Operação</th>
+                        <th>Ponto de controle</th>
+                        <th>Peso(kg)</th>
+                        <th>Usuário</th>
+                        <th>Placa de usuário</th>
+                        <th>Placa carreta vagão OCR</th>
+                        <th>Condição OCR carreta vagão</th>
+                        <th>Placa veículo OCR</th>
+                        <th>Conceição OCR veículo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>28/09/2024 16:24:47</td>
+                        <td>Pré cadastro</td>
+                        <td class="checkmark">✔</td>
+                        <td>PRÉ-CADASTRO</td>
+                        <td>0,00</td>
+                        <td>administrador</td>
+                        <td>INJ-8989</td>
+                        <td>MBH5656</td>
+                        <td class="checkmark">✔</td>
+                        <td>MBH5656</td>
+                        <td class="checkmark">✔</td>
+                    </tr>
+                    <tr>
+                        <td>28/09/2024 16:29:01</td>
+                        <td>Operação de pesagem Inicial</td>
+                        <td class="checkmark">✔</td>
+                        <td>Ponto de Controle de Pesagem</td>
+                        <td>44,545,00</td>
+                        <td>administrador</td>
+                        <td>INJ-8989</td>
+                        <td>MBH5656</td>
+                        <td class="checkmark">✔</td>
+                        <td>MBH5656</td>
+                        <td class="checkmark">✔</td>
+                    </tr>
+                    <tr>
+                        <td>28/09/2024 16:29:49</td>
+                        <td>Operação de Pesagem Final</td>
+                        <td class="checkmark">✔</td>
+                        <td>Ponto de controle de Pesagem</td>
+                        <td>17,104,00</td>
+                        <td>administrador</td>
+                        <td>INJ-8989</td>
+                        <td>MBH5656</td>
+                        <td class="checkmark">✔</td>
+                        <td>MBH5656</td>
+                        <td class="checkmark">✔</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Seção de Fotos -->
+        <div class="section-title">Fotos de Operação</div>
+
+        <!-- Seção de Fotos OCR Placas/Vagão -->
+        <div class="section-title">Fotos OCR Placas/vagão</div>
+        <div class="photo-grid">
+            <div class="photo-item">
+                <img src="path_to_truck_front.jpg" alt="Operação de Pesagem Inicial">
+                <p>Operação de Pesagem Inicial<br>29/09/2024 16:29:01</p>
+            </div>
+            <div class="photo-item">
+                <img src="path_to_truck_back.jpg" alt="Operação de Pesagem Inicial">
+                <p>Operação de Pesagem Inicial<br>29/09/2024 16:29:01</p>
+            </div>
+            <div class="photo-item">
+                <img src="path_to_truck_front.jpg" alt="Operação de Pesagem Final">
+                <p>Operação de Pesagem Final<br>29/09/2024 16:29:49</p>
+            </div>
+            <div class="photo-item">
+                <img src="path_to_truck_back.jpg" alt="Operação de Pesagem Final">
+                <p>Operação de Pesagem Final<br>29/09/2024 16:29:49</p>
+            </div>
+            <button> <a href="{% url 'sistema' %}">Sair</a></button>
+        </div>
+
+        <!-- Seção de Fotos OCR Contêiner -->
+        <div class="section-title">Fotos de OCR Contêiner</div>
+        <div class="photo-grid">
+            <!-- Adicione fotos de contêineres conforme necessário -->
+        </div>
+        
+    </div>
+
+</body>
+
+</html>

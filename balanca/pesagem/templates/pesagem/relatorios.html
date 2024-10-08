@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estatística de OCR Placas/Vagões</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            width: 90%;
+            margin: 20px auto;
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #000;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .table-container {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #000;
+        }
+
+        .summary-table {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .summary-table th, .summary-table td {
+            border: none;
+            padding: 8px 12px;
+        }
+
+        .summary-table th {
+            width: 40%;
+        }
+
+        .charts-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .chart {
+            width: 32%;
+            padding: 10px;
+            text-align: center;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Título -->
+        <h1>ESTATÍSTICA DE OCR PLACAS/VAGÕES</h1>
+
+        <!-- Filtros -->
+        <table class="summary-table">
+            <tr>
+                <th>Ponto de Controle:</th>
+                <td>Todos</td>
+                <th>Data Inicial:</th>
+                <td>29/09/2024</td>
+            </tr>
+            <tr>
+                <th>Data Final:</th>
+                <td>30/09/2024</td>
+            </tr>
+        </table>
+
+        <!-- Resumo de Placas/Vagões -->
+        <div class="table-container">
+            <h2 class="section-title">Resumo de Placas/vagões</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Quantidade</th>
+                        <th>Percentual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Acertos do OCR</td>
+                        <td>52</td>
+                        <td>89,67%</td>
+                    </tr>
+                    <tr>
+                        <td>Erros</td>
+                        <td>6</td>
+                        <td>10,33%</td>
+                    </tr>
+                    <tr>
+                        <td>Total de Placas/vagões</td>
+                        <td>58</td>
+                        <td>100,00%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Detalhamento de Placas/Vagões -->
+        <div class="table-container">
+            <h2 class="section-title">Detalhamento de Placas/vagões</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Quantidade</th>
+                        <th>Percentual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Acertos</td>
+                        <td>52</td>
+                        <td>89,67%</td>
+                    </tr>
+                    <tr>
+                        <td>Erro cadastro do veículo</td>
+                        <td>4</td>
+                        <td>6,67%</td>
+                    </tr>
+                    <tr>
+                        <td>Problema de Placa/vagão</td>
+                        <td>2</td>
+                        <td>3,33%</td>
+                    </tr>
+                    <tr>
+                        <td>Total de falhas</td>
+                        <td>6</td>
+                        <td>10,00%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Detalhamento de problemas de Placas/Vagões -->
+        <div class="table-container">
+            <h2 class="section-title">Detalhamento de problemas de Placas/Vagões</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Quantidade</th>
+                        <th>Percentual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Placa com caractere apagado/ilegível</td>
+                        <td>1</td>
+                        <td>1,67%</td>
+                    </tr>
+                    <tr>
+                        <td>Vagão vazio</td>
+                        <td>0</td>
+                        <td>0,00%</td>
+                    </tr>
+                    <tr>
+                        <td>Total de falhas</td>
+                        <td>2</td>
+                        <td>3,34%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Índice de Acerto -->
+        <div class="table-container">
+            <h2 class="section-title">Índice de Acerto</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Quantidade</th>
+                        <th>Percentual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Acertos (operações de caractere, etc.)</td>
+                        <td>58</td>
+                        <td>100,00%</td>
+                    </tr>
+                    <tr>
+                        <td>Erros (falhas no sistema OCR)</td>
+                        <td>0</td>
+                        <td>0,00%</td>
+                    </tr>
+                    <tr>
+                        <td>Total de Placas/vagões válidos</td>
+                        <td>58</td>
+                        <td>100,00%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="charts-container">
+            <div class="chart">
+                <h3>Resumo de Placas / Vagões</h3>
+                <img src="path_to_pie_chart_1.png" alt="Resumo de Placas / Vagões">
+            </div>
+            <div class="chart">
+                <h3>Detalhada de Placas / Vagões</h3>
+                <img src="path_to_pie_chart_2.png" alt="Detalhada de Placas / Vagões">
+            </div>
+            <div class="chart">
+                <h3>Índice de Acerto</h3>
+                <img src="path_to_pie_chart_3.png" alt="Índice de Acerto">
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

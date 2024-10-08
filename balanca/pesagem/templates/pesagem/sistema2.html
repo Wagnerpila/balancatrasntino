@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operação de Pesagem Final</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e0e0e0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 20px auto;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background-color: #0d1e55;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .weight-display {
+            background-color: #1a3b92;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .weight-display .kg {
+            font-size: 60px;
+            margin: 0;
+        }
+
+        .inputs {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .inputs div {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .inputs input, .inputs select {
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            width: 250px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .buttons button {
+            padding: 10px 20px;
+            font-size: 18px;
+            margin: 0 10px;
+            border-radius: 8px;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        .confirm {
+            background-color: #0a7b28;
+        }
+
+        .cancel {
+            background-color: #cc2a2a;
+        }
+
+        .results {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .results table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .results th,
+        .results td {
+            padding: 12px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        .results th {
+            background-color: #0d1e55;
+            color: white;
+        }
+
+        .results td {
+            background-color: #1a3b92;
+            color: white;
+            font-size: 18px;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #f0f0f0;
+        }
+
+        .footer div {
+            font-size: 14px;
+        }
+
+        .footer button {
+            background-color: red;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">OPERAÇÃO DE PESAGEM FINAL</div>
+
+        <div class="weight-display">
+            <div>MCA</div>
+            <div class="kg">52520 Kg</div>
+            <div>Balança estabilizada</div>
+        </div>
+
+        <div class="inputs">
+            <div>
+                <label>Placa a carreta/vagão</label>
+                <select>
+                    <option>GUA-2015</option>
+                </select>
+            </div>
+            <div>
+                <label>Placa de veículo</label>
+                <input type="text" value="GUA-2015">
+            </div>
+            <div>
+                <label>Identificação</label>
+                <input type="text" value="D423FDS43289FA58C">
+            </div>
+            <div>
+                <label>Fluxo</label>
+                <select>
+                    <option>guardian</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="confirm"><a href="{% url 'ticket_pesagem' %}">Confirmar</a></button>
+            <button class="cancel">Cancelar</button>
+            
+        </div>
+
+        <div class="results">
+            <table>
+                <tr>
+                    <th>Pesagem Inicial(kg)</th>
+                    <td>15160.00</td>
+                </tr>
+                <tr>
+                    <th>Desconto as embalagens (kg)</th>
+                    <td>60.00</td>
+                </tr>
+                <tr>
+                    <th>Peso líquido(kg)</th>
+                    <td>37300.00</td>
+                </tr>
+                <tr>
+                    <th>Peso líquido corrigido (kg)</th>
+                    <td>37300,00</td>
+                </tr>
+                <tr>
+                    <th>Peso líquido calculado (kg)</th>
+                    <td>0,00</td>
+                </tr>
+                <tr>
+                    <th>Peso líquido convertido (ton)</th>
+                    <td>37,30</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="footer">
+            <div>Número: 0000001</div>
+            <div>Data/Hora: 25/09/2024</div>
+            <div>Operador/Administrador</div>
+            <div>Peso mínimo (kg): 500.00</div>
+            <button> <a href="{% url 'sistema' %}">Sair</a></button>
+        </div>
+    </div>
+</body>
+
+</html>
