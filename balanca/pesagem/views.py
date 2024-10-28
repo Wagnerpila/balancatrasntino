@@ -2,8 +2,15 @@ from django.shortcuts import render, redirect
 from .models import Ticket, Veiculo
 from django.http import JsonResponse
 from django.contrib import messages
+import serial
+import requests
 import random
 import time
+
+
+# Configurações básicas da API (alterar conforme necessário)
+API_BASE_URL = "https://intelbras-caco-api-ct3000.intelbras.com.br"
+
 
 def sistema(request):
     messages_list = []  # Lista para exibir mensagens no frontend
@@ -65,28 +72,67 @@ def sistema(request):
     })
 
 # Funções auxiliares para lidar com RFID, cancela, e pesagem
+# Função para ler a tag RFID
 def ler_tag_rfid(messages_list):
-    # Simulação da leitura da tag RFID
-    veiculo = Veiculo.objects.filter(placa='BBB-1111').first()
-    if veiculo:
-        messages_list.append(f"Veículo identificado: {veiculo.placa}")
-        return veiculo
-    return None
+    try:
+        # Chamada para o endpoint que lê o RFID
+        response = requests.get(f"{API_BASE_URL}/rfid/read")
+        response.raise_for_status()  # Verifica erros na requisição
+        
+        data = response.json()
+        placa = data.get('placa')  # Assume que a resposta da API contém um campo 'placa'
 
+        # Busca o veículo no banco de dados
+        veiculo = Veiculo.objects.filter(placa=placa).first()
+        if veiculo:
+            messages_list.append(f"Veículo identificado: {veiculo.placa}")
+            return veiculo
+        else:
+            messages_list.append("Veículo não encontrado no cadastro.")
+            return None
+
+    except requests.RequestException as e:
+        messages_list.append(f"Erro na leitura do RFID: {str(e)}")
+        return None
+
+# Função para abrir a cancela
 def abrir_cancela(messages_list):
-    # Simulação de abertura de cancela
-    messages_list.append("Cancela de entrada aberta.")
+    try:
+        # Chamada para o endpoint que abre a cancela
+        response = requests.post(f"{API_BASE_URL}/gate/open")
+        response.raise_for_status()  # Verifica erros na requisição
+        messages_list.append("Cancela de entrada aberta.")
+    except requests.RequestException as e:
+        messages_list.append(f"Erro ao abrir a cancela: {str(e)}")
 
+# Função para fechar a cancela
 def fechar_cancela(messages_list):
-    # Simulação de fechamento de cancela
-    messages_list.append("Cancela de entrada fechada.")
+    try:
+        # Chamada para o endpoint que fecha a cancela
+        response = requests.post(f"{API_BASE_URL}/gate/close")
+        response.raise_for_status()  # Verifica erros na requisição
+        messages_list.append("Cancela de entrada fechada.")
+    except requests.RequestException as e:
+        messages_list.append(f"Erro ao fechar a cancela: {str(e)}")
 
 def pesar_veiculo(messages_list):
-    # Simulação de pesagem de veículo
-    import random
-    peso = random.randint(10000, 30000)
-    messages_list.append(f"Peso registrado: {peso} Kg")
-    return peso
+    try:
+        # Configurar a comunicação serial com a porta COM1
+        with serial.Serial('COM1', baudrate=9600, timeout=1) as ser:
+            ser.flush()  # Limpar o buffer de entrada
+            # Ler dados da balança
+            if ser.in_waiting > 0:
+                peso = ser.readline().decode('utf-8').strip()
+                peso = int(peso)  # Converter para inteiro, se o peso estiver em formato numérico
+
+                messages_list.append(f"Peso registrado: {peso} Kg")
+                return peso
+            else:
+                messages_list.append("Falha ao ler o peso da balança.")
+                return None
+    except (serial.SerialException, ValueError) as e:
+        messages_list.append(f"Erro na leitura da balança: {str(e)}")
+        return None
 
 # View para realizar a pesagem final e liberar o veículo
 def pesagem_final(request):
