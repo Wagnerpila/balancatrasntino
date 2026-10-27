@@ -2,7 +2,7 @@
 
 ## Como abrir
 Dê **dois cliques em `INICIAR.bat`** (ou no atalho "Pesagem Transtino" da Área de Trabalho).
-O navegador abre sozinho em **http://127.0.0.1:8080/**. Para encerrar, feche a janela preta.
+O navegador abre sozinho em **http://127.0.0.1:8090/**. Para encerrar, feche a janela preta.
 
 Não precisa de VS Code, do venv nem de `python manage.py runserver`; só do Python que já está instalado.
 O sistema antigo (Django, porta 8000) continua funcionando ao mesmo tempo.
