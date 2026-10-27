@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Pesagem</title>
+    <style>
+        /* Adicione aqui estilos específicos para o PDF, como margens, fontes, etc. */
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .table-container {
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    {% if detalhe_pesagem %}
+    <div class="table-container">
+        <h2>Detalhes da Pesagem</h2>
+        <table>
+            <tr>
+                <th>Placa:</th>
+                <td>{{ detalhe_pesagem.placa }}</td>
+            </tr>
+            <tr>
+                <th>Tag RFID:</th>
+                <td>{{ detalhe_pesagem.tag_rfid }}</td>
+            </tr>
+            <tr>
+                <th>Modelo:</th>
+                <td>{{ detalhe_pesagem.modelo }}</td>
+            </tr>
+            <tr>
+                <th>Cor:</th>
+                <td>{{ detalhe_pesagem.cor }}</td>
+            </tr>
+            <tr>
+                <th>Usuário:</th>
+                <td>{{ detalhe_pesagem.user_name }}</td>
+            </tr>
+            <tr>
+                <th>E-mail:</th>
+                <td>{{ detalhe_pesagem.user_email }}</td>
+            </tr>
+            <tr>
+                <th>Peso Final:</th>
+                <td>{{ detalhe_pesagem.peso_final }} kg</td>
+            </tr>
+            <tr>
+                <th>Peso Líquido:</th>
+                <td>{{ detalhe_pesagem.peso_liquido }} kg</td>
+            </tr>
+            <tr>
+                <th>Peso Máximo:</th>
+                <td>{{ detalhe_pesagem.peso_maximo }} kg</td>
+            </tr>
+            <tr>
+                <th>Data da Pesagem:</th>
+                <td>{{ detalhe_pesagem.data_pesagem|date:"d/m/Y H:i" }}</td>
+            </tr>
+        </table>
+    </div>
+    {% endif %}
+</body>
+</html>

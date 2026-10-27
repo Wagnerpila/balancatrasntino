@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Log de Eventos</title>
+</head>
+<body>
+    <h1>Log de Eventos</h1>
+    <ul>
+        {% for log in logs %}
+        <li>
+            <strong>{{ log.timestamp }}</strong><br>
+            Usuário: {{ log.user }}<br>
+            Ponto de Acesso: {{ log.access_point }}<br>
+            Detalhe: {{ log.details }}<br>
+            Sentido: {{ log.direction }}<br>
+            Tipo de evento: {{ log.event_type }}
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

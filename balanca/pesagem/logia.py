@@ -1,0 +1,2 @@
+# formulario de cadastro no frontend contendo: (informacoes para o sistema) nome, email, veiculo, placa,
+#  empresa, (informacoes para vincular o usuario ao sistema) user_id (gerado automaticamente em sequencia numerica), 

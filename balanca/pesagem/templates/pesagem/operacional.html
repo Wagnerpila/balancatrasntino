@@ -156,31 +156,33 @@
             </table>
         </div>
 
-        <!-- Seção de Fotos -->
         <div class="section-title">Fotos de Operação</div>
 
-        <!-- Seção de Fotos OCR Placas/Vagão -->
-        <div class="section-title">Fotos OCR Placas/vagão</div>
         <div class="photo-grid">
-            <div class="photo-item">
-                <img src="path_to_truck_front.jpg" alt="Operação de Pesagem Inicial">
-                <p>Operação de Pesagem Inicial<br>29/09/2024 16:29:01</p>
-            </div>
-            <div class="photo-item">
-                <img src="path_to_truck_back.jpg" alt="Operação de Pesagem Inicial">
-                <p>Operação de Pesagem Inicial<br>29/09/2024 16:29:01</p>
-            </div>
-            <div class="photo-item">
-                <img src="path_to_truck_front.jpg" alt="Operação de Pesagem Final">
-                <p>Operação de Pesagem Final<br>29/09/2024 16:29:49</p>
-            </div>
-            <div class="photo-item">
-                <img src="path_to_truck_back.jpg" alt="Operação de Pesagem Final">
-                <p>Operação de Pesagem Final<br>29/09/2024 16:29:49</p>
-            </div>
-            <button> <a href="{% url 'sistema' %}">Sair</a></button>
+            <!-- Imagens de fotos da operação -->
         </div>
-
+        
+        <video controls autoplay width="640" height="480">
+            <source src="http://localhost/stream.m3u8" type="application/vnd.apple.mpegurl">
+            Seu navegador não suporta a reprodução de vídeo HLS.
+        </video>
+        
+        <!-- Seção de Câmeras IP -->
+        <div class="section-title">Câmeras ao Vivo</div>
+        <div class="camera-grid">
+            <!-- Camera IP 1 -->
+            <div class="camera-item">
+                <iframe src="http://192.168.100.65:10000/video" frameborder="0" allowfullscreen></iframe>
+                <p>Câmera IP 1 - Entrada</p>
+            </div>
+            <!-- Camera IP 2 -->
+            <div class="camera-item">
+                <iframe src="http://<ip-camera-2>:<port>/video" frameborder="0" allowfullscreen></iframe>
+                <p>Câmera IP 2 - Saída</p>
+            </div>
+            <!-- Adicione mais câmeras conforme necessário -->
+        </div>
+        
         <!-- Seção de Fotos OCR Contêiner -->
         <div class="section-title">Fotos de OCR Contêiner</div>
         <div class="photo-grid">

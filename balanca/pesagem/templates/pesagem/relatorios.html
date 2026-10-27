@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estatística de OCR Placas/Vagões</title>
+    <title>Relatórios de Pesagens</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -25,7 +25,7 @@
         h1 {
             font-size: 24px;
             color: #000;
-            text-align: left;
+            text-align: center;
             margin-bottom: 20px;
         }
 
@@ -50,218 +50,126 @@
             font-weight: bold;
         }
 
-        .section-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            color: #000;
+        .link {
+            color: blue;
+            text-decoration: underline;
+            cursor: pointer;
         }
-
-        .summary-table {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-
-        .summary-table th, .summary-table td {
-            border: none;
-            padding: 8px 12px;
-        }
-
-        .summary-table th {
-            width: 40%;
-        }
-
-        .charts-container {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-
-        .chart {
-            width: 32%;
-            padding: 10px;
-            text-align: center;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .chart img {
-            width: 100%;
-            height: auto;
-            border-radius: 8px;
-        }
-
     </style>
 </head>
 
 <body>
+    <!-- Barra de Pesquisa -->
+    <div class="search-container" style="margin-bottom: 20px; text-align: center;">
+        <form method="GET" action="">
+            <input type="text" name="search" placeholder="Buscar por placa, nome ou data..." 
+                   value="{{ search_query }}" 
+                   style="padding: 10px; width: 50%; border-radius: 5px; border: 1px solid #ddd;">
+            <button type="submit" style="padding: 10px 15px; border-radius: 5px; background-color: #4CAF50; color: white; border: none;">Buscar</button>
+        </form>
+        
+    </div>
 
     <div class="container">
         <!-- Título -->
-        <h1>ESTATÍSTICA DE OCR PLACAS/VAGÕES</h1>
+        <h1>Relatórios de Pesagens</h1>
 
-        <!-- Filtros -->
-        <table class="summary-table">
-            <tr>
-                <th>Ponto de Controle:</th>
-                <td>Todos</td>
-                <th>Data Inicial:</th>
-                <td>29/09/2024</td>
-            </tr>
-            <tr>
-                <th>Data Final:</th>
-                <td>30/09/2024</td>
-            </tr>
-        </table>
-
-        <!-- Resumo de Placas/Vagões -->
-        <div class="table-container">
-            <h2 class="section-title">Resumo de Placas/vagões</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Descrição</th>
-                        <th>Quantidade</th>
-                        <th>Percentual</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Acertos do OCR</td>
-                        <td>52</td>
-                        <td>89,67%</td>
-                    </tr>
-                    <tr>
-                        <td>Erros</td>
-                        <td>6</td>
-                        <td>10,33%</td>
-                    </tr>
-                    <tr>
-                        <td>Total de Placas/vagões</td>
-                        <td>58</td>
-                        <td>100,00%</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Detalhamento de Placas/Vagões -->
-        <div class="table-container">
-            <h2 class="section-title">Detalhamento de Placas/vagões</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Descrição</th>
-                        <th>Quantidade</th>
-                        <th>Percentual</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Acertos</td>
-                        <td>52</td>
-                        <td>89,67%</td>
-                    </tr>
-                    <tr>
-                        <td>Erro cadastro do veículo</td>
-                        <td>4</td>
-                        <td>6,67%</td>
-                    </tr>
-                    <tr>
-                        <td>Problema de Placa/vagão</td>
-                        <td>2</td>
-                        <td>3,33%</td>
-                    </tr>
-                    <tr>
-                        <td>Total de falhas</td>
-                        <td>6</td>
-                        <td>10,00%</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Detalhamento de problemas de Placas/Vagões -->
-        <div class="table-container">
-            <h2 class="section-title">Detalhamento de problemas de Placas/Vagões</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Descrição</th>
-                        <th>Quantidade</th>
-                        <th>Percentual</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Placa com caractere apagado/ilegível</td>
-                        <td>1</td>
-                        <td>1,67%</td>
-                    </tr>
-                    <tr>
-                        <td>Vagão vazio</td>
-                        <td>0</td>
-                        <td>0,00%</td>
-                    </tr>
-                    <tr>
-                        <td>Total de falhas</td>
-                        <td>2</td>
-                        <td>3,34%</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Índice de Acerto -->
-        <div class="table-container">
-            <h2 class="section-title">Índice de Acerto</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Descrição</th>
-                        <th>Quantidade</th>
-                        <th>Percentual</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Acertos (operações de caractere, etc.)</td>
-                        <td>58</td>
-                        <td>100,00%</td>
-                    </tr>
-                    <tr>
-                        <td>Erros (falhas no sistema OCR)</td>
-                        <td>0</td>
-                        <td>0,00%</td>
-                    </tr>
-                    <tr>
-                        <td>Total de Placas/vagões válidos</td>
-                        <td>58</td>
-                        <td>100,00%</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Gráficos -->
-        <div class="charts-container">
-            <div class="chart">
-                <h3>Resumo de Placas / Vagões</h3>
-                <img src="path_to_pie_chart_1.png" alt="Resumo de Placas / Vagões">
+        <!-- Lista de Pesagens -->
+        <form method="POST" action="{% url 'relatorio_pdf_multiplo' %}">
+            {% csrf_token %}
+            <div class="table-container">
+                <h2>Lista de Pesagens</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Selecionar</th>
+                            <th>Nome/empresa</th>
+                            <th>Placa</th>
+                            <th>Data da Pesagem</th>
+                            <th>Modelo</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if todas_pesagens %}
+                            {% for pesagem in todas_pesagens %}
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" name="pesagem_ids" value="{{ pesagem.id }}">
+                                    </td>
+                                    <td>{{ pesagem.user_name }}</td>
+                                    <td>{{ pesagem.placa }}</td>
+                                    <td>{{ pesagem.data_pesagem|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ pesagem.modelo }}</td>
+                                    <td><a href="{% url 'detalhe_pesagem' pesagem.id %}" class="link">Ver Detalhes</a></td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center;">Nenhuma pesagem encontrada para a pesquisa.</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
-            <div class="chart">
-                <h3>Detalhada de Placas / Vagões</h3>
-                <img src="path_to_pie_chart_2.png" alt="Detalhada de Placas / Vagões">
-            </div>
-            <div class="chart">
-                <h3>Índice de Acerto</h3>
-                <img src="path_to_pie_chart_3.png" alt="Índice de Acerto">
-            </div>
+            <button type="submit" style="margin-top: 10px; padding: 10px 15px; background-color: #4CAF50; color: white; border: none;">Gerar PDF Selecionado</button>
+        </form>
+        
+
+        <!-- Detalhes de uma Pesagem -->
+        {% if detalhe_pesagem %}
+        <div class="table-container">
+            <h2>Detalhes da Pesagem</h2>
+            <table>
+                <tr>
+                    <th>Placa:</th>
+                    <td>{{ detalhe_pesagem.placa }}</td>
+                </tr>
+                <tr>
+                    <th>Tag RFID:</th>
+                    <td>{{ detalhe_pesagem.tag_rfid }}</td>
+                </tr>
+                <tr>
+                    <th>Modelo:</th>
+                    <td>{{ detalhe_pesagem.modelo }}</td>
+                </tr>
+                <tr>
+                    <th>Cor:</th>
+                    <td>{{ detalhe_pesagem.cor }}</td>
+                </tr>
+                <tr>
+                    <th>Usuário:</th>
+                    <td>{{ detalhe_pesagem.user_name }}</td>
+                </tr>
+                <tr>
+                    <th>E-mail:</th>
+                    <td>{{ detalhe_pesagem.user_email }}</td>
+                </tr>
+                <tr>
+                    <th>Peso Final:</th>
+                    <td>{{ detalhe_pesagem.peso_final }} kg</td>
+                </tr>
+                <tr>
+                    <th>Peso Líquido:</th>
+                    <td>{{ detalhe_pesagem.peso_liquido }} kg</td>
+                </tr>
+                <tr>
+                    <th>Peso Máximo:</th>
+                    <td>{{ detalhe_pesagem.peso_maximo }} kg</td>
+                </tr>
+                <tr>
+                    <th>Data da Pesagem:</th>
+                    <td>{{ detalhe_pesagem.data_pesagem|date:"d/m/Y H:i" }}</td>
+                </tr>
+
+                <td>
+                    <a href="{% url 'relatorio_pdf' detalhe_pesagem.id %}" class="link">Gerar PDF</a>
+                </td>
+                
+            </table>
         </div>
+        {% endif %}
     </div>
-
 </body>
 
 </html>

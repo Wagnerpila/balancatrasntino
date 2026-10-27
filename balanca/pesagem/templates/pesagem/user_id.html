@@ -1,0 +1,24 @@
+<form method="get" action="{% url 'get_users' %}">
+    <div class="mb-3">
+        <label for="userId" class="form-label">UserID</label>
+        <input type="text" class="form-control" id="userId" name="UserID" placeholder="Digite o UserID" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Buscar</button>
+</form>
+<!-- Resultados -->
+{% if user_id_data %}
+    <h2 class="mt-4">Resultado</h2>
+    {% if user_id_data.error %}
+        <div class="alert alert-danger">
+            {{ user_id_data.error }}
+        </div>
+    {% else %}
+        <ul class="list-group">
+            {% for key, value in user_id_data.items %}
+                <li class="list-group-item">
+                    <strong>{{ key }}:</strong> {{ value }}
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endif %}

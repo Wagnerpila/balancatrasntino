@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+    <style>
+        body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: 90%;
+    max-width: 800px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    text-align: center;
+    color: #333;
+}
+
+.records-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.records-list li {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: #f9f9f9;
+}
+
+.records-list li p {
+    margin: 5px 0;
+    color: #555;
+}
+
+.records-list li p strong {
+    color: #333;
+    font-weight: bold;
+}
+
+    </style>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registros de Acesso</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Registros de Acesso</h2>
+        <ul id="access-records" class="records-list">
+            <!-- Os registros serão adicionados aqui dinamicamente -->
+        </ul>
+    </div>
+
+    <script>
+
+document.addEventListener("DOMContentLoaded", () => {
+    const recordsList = document.getElementById("access-records");
+
+    // Função para buscar registros
+    const fetchAccessRecords = async () => {
+        try {
+            const response = await fetch("http://192.168.100.62:8000/eventos-acesso/");
+            const records = await response.json();
+
+            // Limpa os registros existentes
+            recordsList.innerHTML = "";
+
+            // Adiciona os registros no HTML
+            records.forEach((record) => {
+                const listItem = document.createElement("li");
+
+                listItem.innerHTML = `
+                    <p><strong>${record.timestamp}</strong></p>
+                    <p><strong>${record.user}</strong> (${record.detail})</p>
+                    <p>Ponto de Acesso: ${record.access_point}</p>
+                    <p>Sentido: ${record.direction}</p>
+                    <p>Tipo de Evento: ${record.event_type}</p>
+                `;
+
+                recordsList.appendChild(listItem);
+            });
+        } catch (error) {
+            console.error("Erro ao buscar registros:", error);
+            recordsList.innerHTML = "<li>Erro ao carregar registros.</li>";
+        }
+    };
+
+    // Busca os registros ao carregar a página
+    fetchAccessRecords();
+});
+
+    </script>
+</body>
+</html>

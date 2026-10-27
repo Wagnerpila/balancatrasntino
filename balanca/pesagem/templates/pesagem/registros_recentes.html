@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registros Recentes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .record {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Log de Eventos</h1>
+    {% if registros %}
+        {% for registro in registros %}
+            <div class="record">
+                <p><strong>Data/Hora:</strong> {{ registro.timestamp }}</p>
+                <p><strong>Usuário:</strong> {{ registro.user }}</p>
+                <p><strong>Ponto de Acesso:</strong> {{ registro.access_point }}</p>
+                <p><strong>Detalhe:</strong> {{ registro.details }}</p>
+                <p><strong>Sentido:</strong> {{ registro.direction }}</p>
+                <p><strong>Tipo de Evento:</strong> {{ registro.event_type }}</p>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Nenhum registro disponível.</p>
+    {% endif %}
+</body>
+</html>

@@ -1,58 +1,105 @@
+/* Estilos globais */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f0f0f0;
+    background-color: #f9f9f9;
+    color: #333;
 }
 
 .container {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
     grid-template-rows: repeat(4, auto);
-    gap: 10px;
+    gap: 15px;
     padding: 20px;
+    max-width: 1200px;
+    margin: auto;
 }
 
+/* Cabeçalho */
 .header {
     grid-column: span 6;
-    background-color: #0C8B1A;
-    padding: 10px;
+    background-color: #4CAF50;
+    padding: 20px;
     text-align: center;
     color: white;
-    font-size: 24px;
+    font-size: 26px;
     font-weight: bold;
+    border-radius: 5px;
 }
 
+/* Caixas padrão */
 .box {
-    background-color: #fff;
-    border: 1px solid #ccc;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.15);
 }
 
 .box h3 {
     margin-top: 0;
-    background-color: #e0e0e0;
-    padding: 5px;
-    font-size: 14px;
-    text-align: center;
-    border-radius: 3px;
+    font-size: 18px;
+    color: #4CAF50;
+    text-transform: uppercase;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 5px;
+    margin-bottom: 15px;
 }
 
-.input-small {
-    width: 60px;
+/* Identificação */
+.identificacao input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 80px;
     text-align: center;
-    padding: 3px;
 }
 
+/* Dropdown e inputs */
 select, input[type="text"] {
-    padding: 5px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
     width: 100%;
     box-sizing: border-box;
+    margin-top: 5px;
 }
 
-/* Ajuste para a caixa de tráfego */
+/* Estilos para a balança */
+.balanca div {
+    font-size: 20px;
+    color: #333;
+    font-weight: bold;
+}
+
+.balanca div:last-child {
+    color: red;
+}
+
+/* Mensagens */
+.mensagens ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.mensagens li {
+    background-color: #f1f1f1;
+    padding: 8px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    border-left: 5px solid #4CAF50;
+}
+
+/* Luzes de tráfego */
 .traffic-light {
     display: flex;
     justify-content: space-around;
@@ -61,121 +108,245 @@ select, input[type="text"] {
 }
 
 .traffic-light div {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background-color: #ff0000;
+    background-color: white;
+    border: 2px solid #ccc;
 }
 
 .traffic-light .fechado {
-    background-color: #ff9900;
+    background-color: #FF4500;
+    border-color: #FF4500;
 }
 
-.button-group {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 10px;
+.traffic-light .aberto {
+    background-color: #32CD32;
+    border-color: #32CD32;
 }
 
+/* Botões */
 button {
-    padding: 10px;
+    padding: 10px 15px;
     background-color: #4CAF50;
     color: white;
     border: none;
+    border-radius: 5px;
     cursor: pointer;
-    width: 100px;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+    background-color: #45a049;
+    transform: scale(1.05);
 }
 
 button.cancel {
-    background-color: red;
+    background-color: #FF4500;
 }
 
+button.cancel:hover {
+    background-color: #e03e00;
+}
+
+/* Fórmulas */
 .formula {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
     margin-top: 10px;
 }
 
 .formula div {
-    border: 1px solid #ccc;
     padding: 10px;
     text-align: center;
     background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
 }
 
-.status {
-    background-color: #0047ab;
+/* Status */
+.status-bar {
+    background-color: #333;
     color: white;
     padding: 15px;
     text-align: center;
-    font-size: 18px;
-    margin-top: 10px;
+    font-size: 16px;
+    border-radius: 5px;
 }
 
-/* Layout Específico */
+/* Grid específico */
 .ponto-controle {
-    grid-column: 1 / span 2;
-}
-
-.buttons-functions { 
-     width: 10px;
-     height: 10px;
-     padding: 10px;
+    grid-column: span 2;
 }
 
 .identificacao {
-    grid-column: 3 / span 2;
+    grid-column: span 2;
 }
 
 .balanca {
-    grid-column: 5 / span 1;
+    grid-column: span 1;
 }
 
 .automacao {
-    grid-column: 6 / span 1;
-}
-
-.informacao-mca {
-    grid-column: 1 / span 2;
-    grid-row: 2;
+    grid-column: span 1;
 }
 
 .lado-a {
-    grid-column: 3 / span 2;
-    grid-row: 2;
+    grid-column: span 2;
 }
 
 .lado-b {
-    grid-column: 5 / span 1;
-    grid-row: 2;
-}
-
-.sensores {
-    grid-column: 6 / span 1;
-    grid-row: 2;
-}
-
-.dosador {
-    grid-column: 1 / span 2;
-    grid-row: 3;
-}
-
-.programacao-formula {
-    grid-column: 3 / span 3;
-    grid-row: 3;
-}
-
-.painel-testes {
-    grid-column: 6 / span 1;
-    grid-row: 3;
+    grid-column: span 1;
 }
 
 .botoes {
-    grid-column: 1 / span 3;
-    grid-row: 4;
+    grid-column: span 3;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
 }
 
 .status-bar {
-    grid-column: 4 / span 3;
-    grid-row: 4;
+    grid-column: span 3;
 }
+
+/* Ticket */
+.ticket {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ticket .header {
+    text-align: center;
+    color: #4CAF50;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.ticket p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.ticket .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #555;
+    margin-top: 10px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+
+    .botoes {
+        flex-direction: column;
+    }
+}
+
+/* segunda */
+
+
+        table {
+            width: 80%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .ticket {
+            width: 80mm;
+            padding: 10px;
+            margin: 0 auto;
+            border: 1px solid #000;
+            font-size: 14px;
+            background-color: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .header h2 {
+            font-size: 16px;
+            margin: 5px 0;
+        }
+
+        .header p {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #000;
+        }
+
+        .content p {
+            margin: 2px 0;
+        }
+
+        .details {
+            margin: 10px 0;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+        }
+
+        .details p {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .footer p {
+            font-size: 12px;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .ticket {
+                border: none;
+            }
+        }
+
+        .evento-mais-recente {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 20px 0;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        
+        .evento-mais-recente h2 {
+            margin-top: 0;
+        }
+        

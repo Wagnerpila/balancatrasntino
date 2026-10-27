@@ -1,3 +1,7 @@
+
+{% extends 'pesagem/user_search.html' %}
+
+{% block content %}
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -120,7 +124,7 @@
     </style>
 </head>
 <body>
-
+    
     <!-- Container principal -->
     <div class="container">
         <!-- Cabeçalho da Página -->
@@ -128,9 +132,9 @@
             <h1>Cadastro de Caminhões, Clientes e Cargas</h1>
             <p>Preencha os dados abaixo para registrar um novo caminhão, cliente e sua respectiva carga</p>
         </div>
-
+        <form action="{% url 'cadastro' %}" method="POST">
+            {% csrf_token %}    
         <!-- Formulário de Cadastro -->
-        <form action="#" method="POST">
             <!-- Seção de Dados do Caminhão -->
             <h2>Dados do Caminhão</h2>
             <div class="form-row">
@@ -146,7 +150,7 @@
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="peso">Peso Máximo (kg)</label>
+                    <label for="peso">Peso Máximo (TARA)</label>
                     <input type="number" id="peso" name="peso" placeholder="Capacidade máxima do caminhão em kg" required>
                 </div>
                 <div class="form-group">
@@ -166,8 +170,8 @@
                     <label for="cnpj">CNPJ do Cliente</label>
                     <input type="text" id="cnpj" name="cnpj" placeholder="CNPJ do cliente" required>
                 </div>
+                
             </div>
-
             <div class="form-row">
                 <div class="form-group">
                     <label for="telefone">Telefone de Contato</label>
@@ -178,6 +182,28 @@
                     <input type="text" id="email" name="email" placeholder="Email do cliente" required>
                 </div>
             </div>
+            <div class="form-row">
+            <h2>Dados do tag</h2>
+            <label for="card_no">Card No:</label>
+            <input type="text" id="card_no" name="card_no" maxlength="50"><br>
+
+            <label for="user_id">User ID:</label>
+            <input type="number" id="user_id" name="user_id"><br>
+
+            <label for="card_type">Card Type:</label>
+            <input type="number" id="card_type" name="card_type"><br>
+        </div>
+        <div class="form-row">
+
+            <label for="card_name">Card Name:</label>
+            <input type="text" id="card_name" name="card_name" maxlength="255"><br>
+
+            <label for="card_status">Card Status:</label>
+            <input type="number" id="card_status" name="card_status"><br>
+
+            </div>
+
+           
 
             <!-- Seção de Dados da Carga -->
             <h2>Dados da Carga</h2>
@@ -189,6 +215,7 @@
                         <option value="perecivel">Perecível</option>
                         <option value="nao-perecivel">Não Perecível</option>
                         <option value="quimica">Química</option>
+                        <option value="industrial">Madeira</option>
                         <option value="industrial">Industrial</option>
                         <option value="outras">Outras</option>
                     </select>
@@ -204,10 +231,14 @@
                 <textarea id="descricao-carga" name="descricao-carga" placeholder="Descreva a carga transportada" required></textarea>
             </div>
 
+           
             <!-- Botão de Envio -->
             <input type="submit" value="Cadastrar Caminhão e Carga">
         </form>
     </div>
+    <div>
 
 </body>
 </html>
+{% endblock %}
+

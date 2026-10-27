@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Relatório de Pesagens</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Relatório de Pesagens</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Nome/Empresa</th>
+                <th>Placa</th>
+                <th>Data da Pesagem</th>
+                <th>Modelo</th>
+                <th>Peso Final</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pesagem in pesagens %}
+                <tr>
+                    <td>{{ pesagem.user_name }}</td>
+                    <td>{{ pesagem.placa }}</td>
+                    <td>{{ pesagem.data_pesagem|date:"d/m/Y H:i" }}</td>
+                    <td>{{ pesagem.modelo }}</td>
+                    <td>{{ pesagem.peso_final }} kg</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

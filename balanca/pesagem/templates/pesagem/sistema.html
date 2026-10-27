@@ -6,160 +6,226 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Pesagem</title>
     {% load static %}
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+            color: #fff;
+        }
+
+        .header {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            padding: 20px;
+            background-color: #1a1a1a;
+            border-bottom: 3px solid #00adb5;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .box {
+            background: #1a1a1a;
+            border-radius: 10px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .box h3 {
+            text-align: center;
+            color: #00adb5;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background: #00adb5;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #007a89;
+        }
+
+        button a {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        #cancelaStatus {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #00adb5;
+        }
+
+        .evento-mais-recente ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .evento-mais-recente li {
+            margin-bottom: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table th, table td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #333;
+        }
+
+        table th {
+            background: #00adb5;
+        }
+
+        table td {
+            background: #1a1a1a;
+        }
+
+        .balanca div {
+            font-size: 1.2rem;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .mensagens ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .mensagens li {
+            margin-bottom: 5px;
+            padding: 10px;
+            background: #333;
+            border-radius: 5px;
+        }
+    </style>
 </head>
+
 <body>
 
-<div class="header">
-    SISTEMA DE PESAGEM
-</div>
-
-<div class="container">
-    <!-- Ponto de Controle -->
-    <div class="box ponto-controle">
-        <h3>Ponto de controle</h3>
-        <select id="ponto-controle-select" onchange="redirecionar()">
-            <option value="">Selecione...</option>
-            <option value="{% url 'pesagem_final' %}">PONTO_PESAGEM_FINAL</option>
-        </select>
-        <div class="buttons-functions"></div>
+    <div class="header">
+        SISTEMA DE PESAGEM
     </div>
-    <script>
-        function redirecionar() {
-            var select = document.getElementById("ponto-controle-select");
-            var url = select.value;
-            if (url) { // se uma url foi selecionada 
-                window.location.href = url; //redirecionar para a pagina selecionada
-            }
-        }
-    </script>
+    <p style="text-align: center; margin: 10px 0;">Servidor em execução em: {{ server_url }}</p>
 
-    <!-- Identificação -->
-    <div class="box identificacao">
-        <h3>Identificação</h3>
-        <div>Veículo: {% if veiculo %}{{ veiculo.placa }}{% else %}Não identificado{% endif %}</div>
-        <div>Carreta: {% if veiculo %}{{ veiculo.carreta }}{% else %}Não identificado{% endif %}</div>        
-    <input type="text" value="{% if ticket %}{{ ticket.id }}{% else %}N/A{% endif %}" class="input-small">
-</div>
+    <div class="container">
+        <div class="box ponto-controle">
+            <h3>Ponto de Controle</h3>
+            <button id="abrirCancelaBtn">Abrir Cancela</button>
+            <button id="fecharCancelaBtn">Fechar Cancela</button>
+            <button><a href="{% url 'listar_clientes' %}">Clientes</a></button>
+            <button><a href="{% url 'cadastro' %}">Cadastro</a></button>
+            <button><a href="{% url 'relatorios' %}">Relatorios</a></button>
+            <button><a href="{% url 'ticket_pesagem' %}">Ticket</a></button>
+            <div id="cancelaStatus"></div>
+        </div>
 
-    <!-- Balança -->
-    <div class="box balanca">
-        <h3>Balança</h3>
-        <div>Estado: Balança estável</div>
-        {% if peso_inicial %}
-            <div style="font-size: 24px; color: red;">{{ peso_inicial }} Kg</div>
-        {% else %}
-            <div style="font-size: 24px; color: red;">Peso não registrado</div>
-        {% endif %}
-    </div>
+        <div class="box evento-mais-recente">
+            <h3>Evento Mais Recente</h3>
+            {% if evento_mais_recente %}
+            <ul>
+                <li><strong>Usuário:</strong> {{ evento_mais_recente.UserID }}</li>
+                <li><strong>Hora do Evento:</strong> {{ evento_mais_recente.CreateTime }}</li>
+                <li><strong>Tipo do Evento:</strong> {{ evento_mais_recente.EventType }}</li>
+                <li><strong>Porta:</strong> {{ evento_mais_recente.Door }}</li>
+            </ul>
+            {% else %}
+            <p>Nenhum evento recente disponível.</p>
+            {% endif %}
+        </div>
 
-    <!-- Mensagens -->
-    <div class="box mensagens">
-        <h3>Mensagens</h3>
-        <ul>
-            {% for message in messages %}
+        <div class="box identificacao">
+            <h3>Identificação</h3>
+            <h2>Último Registro de Acesso</h2>
+            {% if ultimo_acesso %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuário Responsável</th>
+                        <th>Placa</th>
+                        <th>Modelo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ ultimo_acesso.user_name }}</td>
+                        <td>{{ ultimo_acesso.placa }}</td>
+                        <td>{{ ultimo_acesso.modelo }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            {% else %}
+            <p>Nenhum registro de acesso encontrado.</p>
+            {% endif %}
+        </div>
+
+        <div class="box balanca">
+            <h3>Balança</h3>
+            <div>Estado: {% if balanca_conectada %}Balança conectada{% else %}Balança não conectada{% endif %}</div>
+            <div>{{ peso_inicial|default:"Peso não registrado" }} Kg</div>
+        </div>
+
+        <div class="box mensagens">
+            <h3>Mensagens</h3>
+            <ul>
+                {% for message in messages %}
                 <li>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-
-    <!-- Automação -->
-    <div class="box automacao">
-        <h3>Automação</h3>
-        <div>Estado automação: <span style="color: green;">•</span></div>
-        <div><input type="checkbox" {% if automacao.pesagem_ferroviaria %}checked{% endif %}> Pesagem ferroviária</div>
-        <div><input type="checkbox" {% if automacao.modo_tombador %}checked{% endif %}> Modo tombador</div>
-    </div>
-
-    <!-- Informações do MCA -->
-    <div class="box informacao-mca">
-        <h3>Informação do MCA</h3>
-        <div>Versão do MCA: {{ mca.versao }}</div>
-        <div>Impressor: {% if mca.impressor %}Ligado{% else %}Desligado{% endif %}</div>
-        <div>Configuração: {{ mca.configuracao }}</div>
-        <div>Último evento: {{ mca.ultimo_evento }}</div>
-        <div>Modo de operação: {{ mca.modo_operacao }}</div>
-        <div>Segmento utilizados: {{ mca.segmento_inicio }} ao {{ mca.segmento_fim }}</div>
-    </div>
-
-    <!-- Lado A e Lado B -->
-    <div class="box lado-a">
-        <h3>Lado A</h3>
-        <div style="font-size: 24px; color: red;">{{ lado_a.peso }} Kg</div>
-        <div class="traffic-light">
-            <div>Externo</div>
-            <div class="{% if lado_a.externo == 'Fechado' %}fechado{% else %}aberto{% endif %}">{{ lado_a.externo }}</div>
-            <div>Interno</div>
+                {% endfor %}
+            </ul>
         </div>
     </div>
 
-    <div class="box lado-b">
-        <h3>Lado B</h3>
-        <div style="font-size: 24px; color: red;">{{ lado_b.peso }} Kg</div>
-        <div class="traffic-light">
-            <div>Interno</div>
-            <div class="{% if lado_b.interno == 'Fechado'%}fechado{% else %}aberto{% endif %}">{{ lado_b.interno }}</div>
-            <div>Externo</div>
-        </div>
-    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#abrirCancelaBtn').click(function() {
+                $.ajax({
+                    url: "{% url 'abrir_cancela' %}",
+                    method: "GET",
+                    success: function(response) {
+                        $('#cancelaStatus').html(response.messages.join('<br>'));
+                    },
+                    error: function() {
+                        $('#cancelaStatus').html("Erro ao abrir a cancela.");
+                    }
+                });
+            });
 
-    <!-- Sensores -->
-    <div class="box sensores">
-        <h3>Sensores</h3>
-        <div>Transversais: {{ sensores.transversais }}</div>
-        <div>Longitudinais: {{ sensores.longitudinais }}</div>
-        <div>Acesso: {% if sensores.acesso%}Liberado{% else %}Não Liberado{% endif %}</div>
-    </div>
-
-    <!-- Dosador -->
-    <div class="box dosador">
-        <h3>Dosador</h3>
-        <div>Peso online: <span>{{ dosador.peso_online }}</span></div>
-    </div>
-
-    <!-- Programação da Fórmula da Dosagem -->
-    <div class="box programacao-formula">
-        <h3>Programação da fórmula da Dosagem</h3>
-        <div class="formula">
-            <div>Alvo (kg)</div>
-            <div>{{ dosador.alvo }}</div>
-            <div>Lenta (kg)</div>
-            <div>{{ dosador.lenta }}</div>
-            <div>Corte (kg)</div>
-            <div>{{ dosador.corte }}</div>
-        </div>
-        <div class="formula">
-            <div>Peso dosado (kg)</div>
-            <div>{{ dosador.peso_dosado }}</div>
-            <div>Tara adosagem (kg)</div>
-            <div>{{ dosador.tara }}</div>
-        </div>
-    </div>
-
-    <!-- Testes -->
-    <div class="box painel-testes">
-        <h3>Testes</h3>
-        <div>Painel A: {{ testes.painel_a }}</div>
-        <div>Painel B: {{ testes.painel_b }}</div>
-    </div>
-
-    <!-- Botões -->
-    <div class="box botoes button-group">
-        <button>Para</button>
-        <button>Terminar</button>
-        <button class="cancel">Cancela</button>
-        <button><a href="{% url 'cadastro' %}">Cadastro</a></button>
-        <button><a href="{% url 'pesagem_final' %}">Pesagem final</a></button>
-        <button><a href="{% url 'operacional' %}">Operação pesagem</a></button>
-        <button><a href="{% url 'relatorios' %}">Relatório pesagem</a></button>
-    </div>
-
-    <!-- Status -->
-    <div class="box status-bar">
-        {{ status }}
-    </div>
-
-</div>
-
+            $('#fecharCancelaBtn').click(function() {
+                $.ajax({
+                    url: "{% url 'fechar_cancela' %}",
+                    method: "GET",
+                    success: function(response) {
+                        $('#cancelaStatus').html(response.messages.join('<br>'));
+                    },
+                    error: function() {
+                        $('#cancelaStatus').html("Erro ao fechar a cancela.");
+                    }
+                });
+            });
+        });
+    </script>
 </body>
+
 </html>

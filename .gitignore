@@ -1,0 +1,12 @@
+# Ambiente Python
+venv/
+__pycache__/
+*.pyc
+
+# Dados reais e credenciais - nunca enviar ao GitHub
+balanca/db.sqlite3
+balanca/balanca/segredos.py
+*.sqlite3-journal
+
+# Visual Studio
+.vs/

@@ -1,0 +1,38 @@
+<div class="ticket">
+    <!-- Cabeçalho -->
+    <div class="header">
+        <h2>Ticket de Pesagem</h2>
+        <p>BALANÇA TRANSTINO</p>
+        <p>Ponto de Controle: <strong>{{ ticket.ponto_controle|default:"N/A" }}</strong></p>
+        <p>Data/hora: {{ ultimo_acesso.data_hora }}</p>
+    </div>
+
+    {% if ultimo_acesso %}
+    <!-- Operação -->
+    <div class="section-title">Dados da Operação</div>
+    <div class="content">
+        <p><strong>Operação:</strong> Pesagem rodoviária</p>
+        <p><strong>Ponto de Controle:</strong> {{ ticket.ponto_controle|default:"N/A" }}</p>
+        <p><strong>Peso Inicial:</strong> {{ peso_inicial|default:"-" }} Kg</p>
+        <p><strong>Peso Final:</strong> {{ peso_final|default:"-" }} Kg</p>
+        <p><strong>Usuário:</strong> {{ ultimo_acesso.user_name|default:"Desconhecido" }}</p>
+        <p><strong>Email:</strong> {{ ultimo_acesso.user_email }} </p>
+    </div>
+
+    <!-- Informações do Veículo -->
+    <div class="section-title">Informações do Veículo</div>
+    <div class="content">
+        <p><strong>Placa:</strong> {{ ultimo_acesso.placa }}</p>
+        <p><strong>Modelo:</strong> {{ ultimo_acesso.modelo|default:"N/A" }}</p>
+        <p><strong>Cor:</strong> {{ ultimo_acesso.cor|default:"N/A" }}</p>
+        <p><strong>Carreta:</strong> {{ ultimo_acesso.carreta|default:"-" }}</p>
+        <p><strong>Local para Descarga:</strong>...................................</p>
+        <p><strong>Tipo de Carga:</strong>...................................</p>
+    </div>
+
+    <!-- Detalhes -->
+    <div class="details">
+        <p><span><strong>Data:</strong> {{ data }}</span> <span><strong>Hora:</strong> {{ hora }}</span></p>
+        <p><span><strong>Peso Inicial (TARA):</strong> {{ peso_inicial|default:"-" }} Kg</span></p>
+        <p><span><strong>Peso Final:</strong> {{ peso_final|default:"-" }} Kg</span></p>
+        <p><span><strong>Peso Líquido:</strong> 

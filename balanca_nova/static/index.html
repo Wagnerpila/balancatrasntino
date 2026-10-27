@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pesagem Transtino</title>
+<style>
+:root{
+  --bg:#0f1419; --bg2:#161d25; --card:#1b232d; --card2:#222c38; --line:#2c3846;
+  --txt:#e6edf3; --mut:#8b9bab; --acc:#3fb950; --acc2:#2ea043; --blue:#58a6ff;
+  --warn:#d29922; --err:#f85149; --r:14px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 "Segoe UI",system-ui,Roboto,Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--line)}
+.logo{font-weight:800;letter-spacing:.5px;font-size:17px;white-space:nowrap}
+.logo span{color:var(--acc)}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:0;padding:8px 14px;border-radius:10px;color:var(--mut);cursor:pointer;font-weight:600}
+nav button:hover{background:var(--card);color:var(--txt)}
+nav button.on{background:var(--acc2);color:#fff}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--card);font-size:12px;color:var(--mut);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mut)}
+.dot.ok{background:var(--acc);box-shadow:0 0 8px var(--acc)}.dot.err{background:var(--err)}.dot.warn{background:var(--warn)}
+.spacer{flex:1}
+.oper{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:12px}
+.oper input{width:130px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card)}
+#relogio{font-variant-numeric:tabular-nums;color:var(--mut);font-size:12px}
+main{padding:20px;max-width:1500px;margin:0 auto}
+.tab{display:none}.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:20px}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:20px}
+.card h3{margin:0 0 14px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--mut);display:flex;align-items:center;gap:8px}
+.card h3 .spacer{flex:1}
+/* display da balança */
+.scale{background:radial-gradient(120% 140% at 50% 0%,#1f3a2a 0%,#0b1510 70%);border:1px solid #23462f;border-radius:var(--r);
+  padding:18px 18px 14px;text-align:center}
+.scale .lbl{color:#7fbf8f;font-size:12px;letter-spacing:2px;text-transform:uppercase}
+.scale .valor{font:700 64px/1.1 Consolas,"Courier New",monospace;color:#7dff9b;text-shadow:0 0 18px rgba(125,255,155,.35);
+  font-variant-numeric:tabular-nums;margin:6px 0}
+.scale .valor small{font-size:22px;color:#5fbf75;margin-left:6px}
+.scale.off .valor{color:#4b5b50;text-shadow:none}
+.scale .st{font-size:12px;color:#9fd3ab;min-height:18px}
+.estavel{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:1px}
+.estavel.s{background:#1e5a30;color:#9effb5}.estavel.i{background:#5a4a1e;color:#ffd77a}.estavel.x{background:#5a1e1e;color:#ffb3b3}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1;min-width:120px}
+label{display:block;font-size:12px;color:var(--mut);margin:0 0 4px;font-weight:600}
+.f{margin-bottom:12px}
+input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(88,166,255,.18)}
+input.peso{font:700 22px Consolas,monospace;text-align:right}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card2);cursor:pointer;font-weight:600;white-space:nowrap;transition:.15s}
+.btn:hover{border-color:var(--mut)}
+a.btn{text-decoration:none;color:var(--txt)}
+.btn.p{background:var(--acc2);border-color:var(--acc2);color:#fff}.btn.p:hover{background:var(--acc)}
+.btn.b{background:#1f4b7a;border-color:#2b6cb0;color:#fff}
+.btn.d{background:transparent;border-color:#6b2a2a;color:#ff9a9a}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.secao{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;background:rgba(255,255,255,.015)}
+.secao .tit{font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.secao .tit .n{width:22px;height:22px;border-radius:50%;background:var(--acc2);display:grid;place-items:center;font-size:12px}
+.secao .meta{font-size:12px;color:var(--mut);margin-top:6px}
+.pesorow{display:flex;gap:8px;align-items:stretch}
+.pesorow input{flex:1}
+.resultado{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.res{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px}
+.res .k{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
+.res .v{font:700 34px Consolas,monospace;color:var(--acc);margin-top:4px}
+.res .v.neg{color:var(--err)}
+.res .s{font-size:12px;color:var(--mut)}
+.acoes{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px}
+/* autocomplete */
+.ac{position:relative}
+.ac-list{position:absolute;left:0;right:0;top:100%;z-index:30;background:var(--card2);border:1px solid var(--line);border-radius:10px;
+  margin-top:4px;max-height:320px;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.ac-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line)}
+.ac-item:last-child{border-bottom:0}
+.ac-item:hover,.ac-item.sel{background:#2a3a4b}
+.ac-item b{display:block}.ac-item small{color:var(--mut)}
+.pill{display:inline-block;padding:2px 8px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);font-size:11px;color:var(--mut);margin-right:4px}
+.cli-box{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;background:#16263a;border:1px solid #23466e;font-size:13px}
+.cli-box.on{display:block}
+.frota{margin-top:12px;border:1px solid #23466e;border-radius:12px;padding:12px;background:#121c28}
+.frota-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.frota-top b{font-size:14px}.frota-top input{flex:1;min-width:160px;padding:7px 10px}
+.frota-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;max-height:340px;overflow:auto;padding:2px}
+.cam{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:.15s;position:relative}
+.cam:hover{border-color:var(--blue);transform:translateY(-1px)}
+.cam.sel{border-color:var(--acc);box-shadow:0 0 0 2px rgba(63,185,80,.35);background:#1a2e22}
+.cam .pl{font:700 17px Consolas,monospace;letter-spacing:1px}
+.cam .md{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cam .tr{font-size:12px;margin-top:4px}
+.cam .patio{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;background:#5a4a1e;color:#ffd77a}
+.ac-item.emp b::before{content:"🏢 "}
+/* tag */
+.tagbox{display:flex;gap:12px;align-items:center;padding:12px;border-radius:12px;background:var(--bg2);border:1px dashed var(--line);margin-bottom:12px}
+.tagbox .ic{font-size:28px}
+.tagbox .t{font-weight:700}.tagbox .s{font-size:12px;color:var(--mut)}
+.tagbox.novo{border-color:var(--acc);animation:pulse 1.2s 3}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(63,185,80,.25)}}
+/* tabelas */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+tr:hover td{background:rgba(255,255,255,.02)}
+td.num{text-align:right;font-family:Consolas,monospace}
+#tbCad tr{cursor:pointer}
+#tbCad td.nome{white-space:normal;min-width:180px;max-width:280px}
+#tbCad td.acoes-cad{white-space:nowrap}
+.st-ABERTO{color:var(--warn)}.st-ENCERRADO{color:var(--acc)}.st-CANCELADO{color:var(--err)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.kpi .k{font-size:12px;color:var(--mut)}.kpi .v{font-size:24px;font-weight:800;margin-top:2px}
+.abertos{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.tk{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;padding:14px;cursor:pointer;transition:.15s}
+.tk:hover{transform:translateY(-2px);border-color:var(--warn)}
+.tk .n{font-size:12px;color:var(--mut)}.tk .p{font-size:20px;font-weight:800;letter-spacing:1px}
+.vazio{color:var(--mut);text-align:center;padding:30px}
+/* toast/modal */
+#toasts{position:fixed;right:20px;bottom:20px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--blue);padding:12px 16px;border-radius:10px;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);max-width:380px;animation:in .2s}
+.toast.ok{border-left-color:var(--acc)}.toast.err{border-left-color:var(--err)}.toast.warn{border-left-color:var(--warn)}
+@keyframes in{from{transform:translateY(10px);opacity:0}}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.on{display:flex}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;width:min(760px,100%);max-height:90vh;overflow:auto}
+.modal h2{margin:0 0 16px;font-size:18px}
+.muted{color:var(--mut)}
+code{background:var(--bg2);padding:2px 6px;border-radius:6px}
+
+/* ===== TICKET IMPRESSO (igual ao modelo manual) ===== */
+#print-area{display:none}
+.tkp{break-inside:avoid;font-family:Cambria,Georgia,"Times New Roman",serif;color:#000;background:#fff;width:190mm;margin:0 auto;padding:6mm 0}
+.tkp h1{font-size:30px;text-align:center;margin:0 0 10px;font-weight:400;letter-spacing:1px}
+.tkp table{width:100%;border-collapse:collapse;font-size:13px}
+.tkp td{border:1px solid #000;vertical-align:top;padding:5px 7px;white-space:normal;color:#000}
+.tkp .h{font-weight:700}
+.tkp .big{font-size:20px;font-weight:700}
+.tkp .local{border:1px solid #000;padding:5px 7px;margin-top:14px;font-size:13px;width:80%;min-height:24px}
+.tkp .rod{font-size:10px;margin-top:8px;color:#333}
+.tkp + .tkp{page-break-before:always}
+.periodos{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+/* ===== DASHBOARD ===== */
+.dash{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--good:#0ca30c;--crit:#d03b3b;--warnc:#fab219;
+  --heat0:#24303d;--h1:#256abf;--h2:#3987e5;--h3:#6da7ec;--h4:#b7d3f6}
+.dash-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.dash-top h2{margin:0;font-size:20px}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{background:none;border:0;padding:6px 12px;border-radius:8px;color:var(--mut);cursor:pointer;font-weight:600}
+.seg button.on{background:var(--card2);color:var(--txt);box-shadow:0 0 0 1px var(--line)}
+.dgrid{display:grid;gap:16px;margin-bottom:16px}
+.g6{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.g6{grid-template-columns:repeat(2,1fr)}}
+.tile:has(.spark){padding-bottom:44px}
+.g21{grid-template-columns:2fr 1fr}.g11{grid-template-columns:1fr 1fr}.g111{grid-template-columns:repeat(3,1fr)}
+@media(max-width:1100px){.g21,.g11,.g111{grid-template-columns:1fr}}
+.dash .card{margin:0}
+.dgrid>*,.tile{min-width:0}
+.seg{flex-wrap:wrap}
+@media(max-width:600px){.g6{grid-template-columns:1fr}main{padding:14px}header{padding:10px 14px}}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;position:relative;overflow:hidden}
+.tile .k{font-size:12px;color:var(--mut);display:flex;gap:6px;align-items:center}
+.tile .v{font-size:28px;font-weight:800;margin-top:6px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.tile .v small{font-size:14px;color:var(--mut);font-weight:600;margin-left:4px}
+.tile .d{font-size:12px;margin-top:4px;color:var(--mut)}
+.delta{font-weight:700;font-size:12px}.delta.up{color:#5fd35f}.delta.down{color:#ff8a8a}
+.tile .spark{position:absolute;right:0;bottom:0;left:0;height:34px;opacity:.9}
+.chart{width:100%;position:relative}
+.chart svg{display:block;width:100%;overflow:visible}
+.ax{fill:var(--mut);font-size:11px;font-family:inherit}
+.gl{stroke:#2a3644;stroke-width:1}
+.ch-cab{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.ch-cab h3{margin:0}.ch-cab .spacer{flex:1}
+.ch-sub{font-size:12px;color:var(--mut);margin:-6px 0 10px}
+.vtab{max-height:280px;overflow:auto}
+#vizTip{position:fixed;z-index:200;pointer-events:none;background:#0b1017;border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:120px}
+#vizTip strong{display:block;font-size:15px}#vizTip span{display:block;color:var(--mut)}
+.hb{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:8px;align-items:center;padding:5px 0;cursor:default}
+.hb .l{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .t{height:14px;background:transparent;border-radius:0 4px 4px 0}
+.hb .bf{height:14px;border-radius:0 4px 4px 0;min-width:2px}
+.hb .n{font-size:12px;font-variant-numeric:tabular-nums;color:var(--txt);text-align:right;min-width:70px}
+.hb:hover .l{color:#fff}.hb:hover .bf{filter:brightness(1.15)}
+.heat-wrap{overflow-x:auto}
+.heat{min-width:420px;display:grid;grid-template-columns:34px repeat(24,1fr);gap:2px;font-size:10px;color:var(--mut)}
+.heat .c{aspect-ratio:1;border-radius:3px;background:var(--heat0)}
+.heat .c:hover{outline:2px solid var(--txt);outline-offset:-1px}
+.heat .rl{display:flex;align-items:center}
+.heat-leg{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mut);margin-top:10px;justify-content:flex-end}
+.heat-leg i{width:14px;height:14px;border-radius:3px;display:inline-block}
+.st-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.st-row:last-child{border-bottom:0}.st-row .ic{font-size:16px;width:22px;text-align:center}
+.st-row .tx{flex:1}.st-row .tx small{display:block;color:var(--mut);font-size:11px}
+.stb{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+.stb.ok{background:rgba(12,163,12,.18);color:#7be07b}.stb.av{background:rgba(250,178,25,.16);color:#ffd277}.stb.er{background:rgba(208,59,59,.2);color:#ff9d9d}
+.qual{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--bg2)}
+.qual .n{font-size:22px;font-weight:800;min-width:42px;text-align:center}
+.qual .tx{flex:1;font-size:13px;min-width:0}.qual .tx small{display:block;color:var(--mut);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.patio-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.patio-item:last-child{border-bottom:0}.patio-item b{font-family:Consolas,monospace;letter-spacing:1px}
+.rel-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:1000px){.rel-grid{grid-template-columns:1fr}}
+.barra{height:8px;border-radius:99px;background:var(--acc2);min-width:2px}
+#tbRelEmp tr{cursor:pointer}
+.relp{font-family:Arial,sans-serif;color:#000;background:#fff;font-size:11px}
+.relp h1{font-size:20px;margin:0}.relp .sub{margin:2px 0 10px;font-size:12px}
+.relp table{width:100%;border-collapse:collapse;margin-bottom:12px}
+.relp th,.relp td{border:1px solid #999;padding:3px 5px;text-align:left;white-space:normal;color:#000}
+.relp th{background:#eee;font-size:10px;text-transform:uppercase}
+.relp td.n{text-align:right}.relp tfoot td{font-weight:700;background:#f4f4f4}
+.relp .kp{display:flex;gap:16px;margin-bottom:10px;font-size:12px}.relp .kp b{font-size:15px}
+/* ===== EMPRESAS / COBRANÇA ===== */
+.emp-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;background:#1f4b7a;border:1px solid #2b6cb0;
+  color:#fff;font-weight:800;letter-spacing:.3px;font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emp-badge.aut{background:var(--card2);border-color:var(--line);color:var(--mut);font-weight:700}
+.emp-badge.sm{font-size:12px;padding:2px 9px}
+.cli-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.cli-head .mot{font-size:15px}
+.cobr{margin-top:12px;border:1px solid #2b6cb0;border-radius:12px;padding:12px;background:#132235}
+.seg2{display:flex;gap:4px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg2 button{flex:1;background:none;border:0;padding:7px 10px;border-radius:8px;color:var(--mut);cursor:pointer;font-weight:700;white-space:nowrap}
+.seg2 button.on{background:#1f4b7a;color:#fff}
+.seg2 button:disabled{opacity:.35;cursor:not-allowed}
+.alterado{color:var(--warn);font-weight:700}
+.pag{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--card)}
+.pag-h{display:flex;gap:12px;align-items:center;padding:12px 14px;cursor:pointer;flex-wrap:wrap}
+.pag-h:hover{background:rgba(255,255,255,.02)}
+.pag-h .nm{flex:1;min-width:200px}.pag-h .nm b{font-size:15px}.pag-h .nm small{display:block;color:var(--mut)}
+.pag-h .vl{font:800 18px Consolas,monospace;min-width:120px;text-align:right}
+.pag-b{border-top:1px solid var(--line);padding:12px 14px}
+.tp{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.tp.E{background:#1f4b7a;color:#cfe3ff}.tp.M{background:#3b2f4d;color:#e3d2ff}
+.stf{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.stf.ok{background:rgba(12,163,12,.18);color:#7be07b}.stf.pend{background:rgba(250,178,25,.16);color:#ffd277}
+.stf.paga{background:rgba(12,163,12,.18);color:#7be07b}.stf.aberta{background:rgba(250,178,25,.16);color:#ffd277}
+.mig{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;background:rgba(255,255,255,.015)}
+.mig h4{margin:0 0 4px;font-size:15px}.mig .sub{color:var(--mut);font-size:12px;margin:0 0 10px}
+.mig td{vertical-align:middle;white-space:normal}.mig input,.mig select{padding:6px 8px}
+.mig .migMot,.mig .migEmp{min-width:230px}
+.dupg{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--bg2)}
+.dupg label.opt{display:flex;gap:8px;align-items:center;font-weight:400;color:var(--txt);font-size:13px;padding:4px 0;margin:0;cursor:pointer}
+.dupg label.opt input{width:auto}
+.ck{width:auto!important}
+tr.oculto td{opacity:.55}
+.tkp td.empd{border:2.5px solid #000}
+.tkp .emp-big{font-size:22px;font-weight:700}
+@media print{
+  @page{size:A4;margin:8mm}
+  body{background:#fff}
+  header,main,#toasts,.modal-bg{display:none!important}
+  #print-area{display:block!important}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">⚖ <span id="empresa">BALANÇA TRANSTINO</span></div>
+  <nav id="nav">
+    <button data-tab="dashboard">Dashboard</button>
+    <button data-tab="pesagem" class="on">Pesagem</button>
+    <button data-tab="abertos">Tickets abertos <span id="nAbertos" class="pill">0</span></button>
+    <button data-tab="tickets">Tickets</button>
+    <button data-tab="relatorios">Relatórios</button>
+    <button data-tab="faturamento">Faturamento</button>
+    <button data-tab="valores">Valores</button>
+    <button data-tab="historico">Histórico antigo</button>
+    <button data-tab="cadastros">Motoristas</button>
+    <button data-tab="empresas">Empresas</button>
+    <button data-tab="config">Configurações</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="badge"><span class="dot" id="dotBal"></span> Balança</span>
+  <span class="badge" title="Leitura automática de tags via InControl"><span class="dot" id="dotTag"></span> Tags</span>
+  <span class="badge" id="badgeBkp" title="Backup do banco de dados" style="cursor:pointer"><span class="dot" id="dotBkp"></span> Backup</span>
+  <label class="oper">Operador <input id="operador" value="administrator"></label>
+  <span id="relogio"></span>
+</header>
+
+<main>
+<!-- ================= PESAGEM ================= -->
+<section class="tab on" id="tab-pesagem">
+  <div class="grid">
+    <div>
+      <div class="scale off" id="scale">
+        <div class="lbl">Balança <span id="numBal">1</span> · peso bruto</div>
+        <div class="valor"><span id="pesoAtual">-----</span><small>kg</small></div>
+        <div class="st"><span class="estavel x" id="estavel">SEM SINAL</span> <span id="balMsg"></span></div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <h3>🏷️ Identificação por tag</h3>
+        <div class="tagbox" id="tagbox">
+          <div class="ic">📡</div>
+          <div><div class="t" id="tagUser">Aguardando leitura…</div><div class="s" id="tagInfo">Leitura automática desativada — ative em Configurações</div></div>
+        </div>
+        <div class="f">
+          <label>Código da tag, "NOME - ID" do InControl, nº do cartão ou placa</label>
+          <div class="pesorow">
+            <input id="tagCodigo" placeholder="Ex.: DOMINGOS - 41">
+            <button class="btn b" id="btnTag">Identificar</button>
+          </div>
+        </div>
+        <div id="tagRes"></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Dica: cole aqui o nome que aparece no Log de Eventos do InControl.</p>
+      </div>
+      <div class="kpis" id="kpis" style="grid-template-columns:1fr 1fr"></div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Ticket de pesagem <span class="pill" id="tkNumero">NOVO</span><span class="spacer"></span>
+        <span class="pill" id="tkEmissor">Emissor: Manual</span></h3>
+
+      <div class="secao">
+        <div class="tit"><span class="n">1</span> Veículo / Motorista</div>
+        <div class="row">
+          <div class="f ac" style="flex:2">
+            <label>Buscar empresa, caminhão, placa ou nº da tag</label>
+            <input id="busca" placeholder="Digite para buscar nos cadastros…" autocomplete="off">
+            <div class="ac-list" id="acList" hidden></div>
+          </div>
+          <div class="f">
+            <label>Empresas com vários caminhões</label>
+            <select id="selEmpresa"><option value="">Selecione a empresa…</option></select>
+          </div>
+        </div>
+        <div class="frota" id="frota" hidden>
+          <div class="frota-top">
+            <b id="frotaTit"></b>
+            <input id="frotaFiltro" placeholder="Filtrar placa, modelo ou motorista…">
+            <button class="btn sm" id="frotaFechar">Fechar</button>
+          </div>
+          <div class="frota-grid" id="frotaGrid"></div>
+        </div>
+        <div class="cli-box" id="cliBox"></div>
+        <div class="cobr">
+          <div class="row" style="align-items:flex-end">
+            <div class="f" style="flex:2;margin:0"><label>🏢 Empresa (faturar para) <span class="alterado" id="tkEmpAlt" hidden>· trocada só nesta pesagem</span></label>
+              <div class="pesorow"><select id="tkEmpresa"></select><button class="btn" id="tkNovaEmp" title="Cadastrar nova empresa">+ Nova</button></div></div>
+            <div class="f" style="margin:0"><label>Cobrar de</label>
+              <div class="seg2" id="tkPagador"><button data-p="EMPRESA">🏢 Empresa</button><button data-p="MOTORISTA">👤 Motorista</button></div></div>
+          </div>
+          <div class="meta" id="tkCobInfo"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div class="f"><label>Placa</label><input id="placa" style="text-transform:uppercase"></div>
+          <div class="f"><label>Motorista</label><input id="motorista"></div>
+          <div class="f"><label>Item / Produto</label><input id="item" list="itens"></div>
+          <datalist id="itens"></datalist>
+          <datalist id="dlEmpresas"></datalist>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="secao">
+          <div class="tit"><span class="n">2</span> Pesagem inicial</div>
+          <div class="pesorow">
+            <input class="peso" id="pesoInicial" inputmode="numeric" placeholder="0">
+            <button class="btn b" id="capIni" title="Capturar da balança">⚖ Balança</button>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn sm" id="taraCad" disabled>Usar TARA do cadastro</button>
+          </div>
+          <div class="meta" id="metaIni">Data/hora e operador registrados ao salvar.</div>
+        </div>
+        <div class="secao">
+          <div class="tit"><span class="n">3</span> Pesagem final</div>
+          <div class="pesorow">
+            <input class="peso" id="pesoFinal" inputmode="numeric" placeholder="0">
+            <button class="btn b" id="capFin" title="Capturar da balança">⚖ Balança</button>
+          </div>
+          <div class="meta" id="metaFin">Pode ficar em branco e ser feita depois (ticket aberto).</div>
+        </div>
+      </div>
+
+      <div class="secao">
+        <div class="tit"><span class="n">4</span> Resultado</div>
+        <div class="resultado">
+          <div class="res"><div class="k">Peso líquido</div><div class="v" id="liq">—</div><div class="s" id="liqS">Final − Inicial</div></div>
+          <div class="res"><div class="k">Diferença origem</div><div class="v" id="dif" style="color:var(--blue)">0 kg</div>
+            <div class="s"><input id="pesoOrigem" inputmode="numeric" placeholder="Peso da NF / origem (opcional)" style="margin-top:6px;padding:6px 10px"></div></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div class="f"><label>Local para descarregar</label><input id="localDescarga"></div>
+          <div class="f"><label>Observação</label><input id="observacao"></div>
+        </div>
+        <div class="row">
+          <div class="f"><label>Valor da pesagem (R$) — em branco usa a tabela</label><input id="valorManual" inputmode="decimal" placeholder="Pela tabela de valores"></div>
+          <div class="f"><label>Tabela de valor de quem paga</label><div class="meta" id="valorTabela" style="margin-top:10px">—</div></div>
+        </div>
+      </div>
+
+      <div class="acoes">
+        <button class="btn d" id="btnLimpar">Limpar</button>
+        <button class="btn d" id="btnCancelar" hidden>Cancelar ticket</button>
+        <button class="btn" id="btnAbrir">💾 Salvar 1ª pesagem (ticket aberto)</button>
+        <button class="btn p" id="btnEncerrar">🖨️ Encerrar e imprimir</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ABERTOS ================= -->
+<section class="tab" id="tab-abertos">
+  <div class="card">
+    <h3>⏳ Aguardando segunda pesagem</h3>
+    <div class="abertos" id="listaAbertos"></div>
+  </div>
+</section>
+
+<!-- ================= TICKETS ================= -->
+<section class="tab" id="tab-tickets">
+  <div class="card">
+    <h3>🎫 Tickets do sistema novo <span class="spacer"></span>
+      <input id="buscaTickets" placeholder="Buscar placa, motorista, nº…" style="width:260px"></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Nº</th><th>Status</th><th>Placa</th><th>Empresa</th><th>Motorista</th><th>Cobrança</th><th>Item</th><th>Inicial</th><th>Final</th><th>Líquido</th><th>Data</th><th></th></tr></thead>
+      <tbody id="tbTickets"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ================= HISTÓRICO ANTIGO ================= -->
+<section class="tab" id="tab-historico">
+  <div class="card">
+    <h3>📚 Pesagens do sistema antigo (pesagem_pesagem) <span class="spacer"></span>
+      <input id="buscaHist" placeholder="Buscar placa ou nome…" style="width:260px"></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>ID</th><th>Data</th><th>Placa</th><th>Nome</th><th>TARA</th><th>Peso final</th><th>Líquido</th><th>Origem</th><th></th></tr></thead>
+      <tbody id="tbHist"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ================= DASHBOARD ================= -->
+<section class="tab dash" id="tab-dashboard">
+  <div class="dash-top">
+    <h2>📈 Painel geral</h2>
+    <div class="seg" id="dashPer">
+      <button data-d="7">7 dias</button><button data-d="30" class="on">30 dias</button>
+      <button data-d="90">90 dias</button><button data-d="365">12 meses</button>
+    </div>
+    <span class="spacer" style="flex:1"></span>
+    <span class="muted" style="font-size:12px" id="dashAtual"></span>
+    <button class="btn sm" id="dashRefresh">↻ Atualizar</button>
+  </div>
+
+  <div class="dgrid g6" id="dashTiles"></div>
+
+  <div class="dgrid g21">
+    <div class="card">
+      <div class="ch-cab"><h3>Peso líquido por dia</h3><span class="spacer"></span><button class="btn sm" data-tab-de="chDia">Tabela</button></div>
+      <p class="ch-sub" id="chDiaSub"></p>
+      <div class="chart" id="chDia"></div><div class="vtab" id="chDiaTab" hidden></div>
+    </div>
+    <div class="card">
+      <h3>🖥️ Sistema</h3>
+      <div id="dashSistema"></div>
+    </div>
+  </div>
+
+  <div class="dgrid g11">
+    <div class="card">
+      <div class="ch-cab"><h3>Toneladas por mês (12 meses)</h3><span class="spacer"></span><button class="btn sm" data-tab-de="chMes">Tabela</button></div>
+      <div class="chart" id="chMes"></div><div class="vtab" id="chMesTab" hidden></div>
+    </div>
+    <div class="card">
+      <div class="ch-cab"><h3>Movimento por dia da semana e hora</h3></div>
+      <p class="ch-sub">Quantidade de pesagens no período — mostra os horários de pico</p>
+      <div id="chCalor"></div>
+    </div>
+  </div>
+
+  <div class="dgrid g111">
+    <div class="card"><h3>🏢 Top empresas (peso líquido)</h3><div id="chEmp"></div></div>
+    <div class="card"><h3>📦 Itens / produtos</h3><div id="chItem"></div></div>
+    <div class="card"><h3>🚚 Caminhões que mais pesaram</h3><div id="chCam"></div></div>
+  </div>
+
+  <div class="dgrid g11">
+    <div class="card">
+      <h3>🕒 Últimas pesagens</h3>
+      <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Placa</th><th>Empresa</th><th>Líquido</th></tr></thead><tbody id="dashUlt"></tbody></table></div>
+    </div>
+    <div class="dgrid" style="margin:0">
+      <div class="card"><h3>⏳ Caminhões no pátio</h3><div id="dashPatio"></div></div>
+      <div class="card"><h3>🧹 Qualidade dos cadastros</h3><div id="dashQual"></div></div>
+    </div>
+  </div>
+</section>
+<div id="vizTip" hidden></div>
+
+<!-- ================= RELATÓRIOS ================= -->
+<section class="tab" id="tab-relatorios">
+  <div class="card">
+    <h3>📊 Relatório de pesagens</h3>
+    <div class="periodos">
+      <button class="btn sm" data-per="hoje">Hoje</button>
+      <button class="btn sm" data-per="ontem">Ontem</button>
+      <button class="btn sm" data-per="7">Últimos 7 dias</button>
+      <button class="btn sm" data-per="mes">Este mês</button>
+      <button class="btn sm" data-per="mesant">Mês passado</button>
+      <button class="btn sm" data-per="30">Últimos 30 dias</button>
+    </div>
+    <div class="row" style="align-items:flex-end">
+      <div class="f"><label>De</label><input type="date" id="relIni"></div>
+      <div class="f"><label>Até</label><input type="date" id="relFim"></div>
+      <div class="f" style="flex:2"><label>Empresa</label><input id="relEmp" list="relEmpresas" placeholder="Todas as empresas"></div>
+      <datalist id="relEmpresas"></datalist>
+      <div class="f"><label>Motorista</label><input id="relMot" placeholder="Todos"></div>
+      <div class="f"><label>Cobrança (quem paga)</label><input id="relPag" placeholder="Todos"></div>
+      <div class="f"><label>Placa / item / nº</label><input id="relQ" placeholder="Opcional"></div>
+      <div class="f" style="flex:0 0 auto;display:flex;gap:8px">
+        <button class="btn p" id="relGerar">Gerar</button>
+        <button class="btn" id="relLimpar" title="Limpar filtros de empresa e texto">Limpar</button>
+      </div>
+    </div>
+  </div>
+  <div class="kpis" id="relKpis"></div>
+  <div class="rel-grid">
+    <div class="card">
+      <h3>Agrupar por <div class="seg" id="relGrp"><button data-g="empresa" class="on">🏢 Empresa</button><button data-g="motorista">👤 Motorista</button><button data-g="pagador">💲 Quem paga</button></div>
+        <span class="spacer"></span><span class="muted" style="text-transform:none;letter-spacing:0">clique para filtrar</span></h3>
+      <div class="tbl-wrap" style="max-height:360px;overflow:auto"><table>
+        <thead><tr><th id="relGrpCol">Empresa</th><th>Pesagens</th><th>Caminhões</th><th>Líquido (kg)</th><th style="width:25%"></th></tr></thead>
+        <tbody id="tbRelEmp"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h3>📅 Por dia</h3>
+      <div class="tbl-wrap" style="max-height:360px;overflow:auto"><table>
+        <thead><tr><th>Dia</th><th>Pesagens</th><th>Líquido (kg)</th><th style="width:35%"></th></tr></thead>
+        <tbody id="tbRelDia"></tbody></table></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>📋 Pesagens <span class="pill" id="relN"></span><span class="spacer"></span>
+      <button class="btn sm" id="relCsv">⬇ Exportar Excel (CSV)</button>
+      <button class="btn sm p" id="relImp">🖨️ Imprimir relatório</button></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Nº</th><th>Data</th><th>Placa</th><th>Empresa</th><th>Motorista</th><th>Cobrança</th><th>Item</th><th>TARA</th><th>Bruto</th><th>Líquido</th><th>Origem</th></tr></thead>
+      <tbody id="tbRel"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ================= FATURAMENTO ================= -->
+<section class="tab" id="tab-faturamento">
+  <div class="card">
+    <h3>🧾 Faturamento — cobrança por empresa ou motorista</h3>
+    <div class="periodos">
+      <button class="btn sm" data-fper="mes">Este mês</button>
+      <button class="btn sm" data-fper="mesant">Mês passado</button>
+      <button class="btn sm" data-fper="7">Últimos 7 dias</button>
+      <button class="btn sm" data-fper="30">Últimos 30 dias</button>
+    </div>
+    <div class="row" style="align-items:flex-end">
+      <div class="f"><label>De</label><input type="date" id="fatIni"></div>
+      <div class="f"><label>Até</label><input type="date" id="fatFim"></div>
+      <div class="f" style="flex:2"><label>Buscar empresa, motorista ou placa</label><input id="fatQ" placeholder="Todos" list="dlEmpresas"></div>
+      <div class="f" style="flex:0 0 auto;display:flex;gap:8px">
+        <button class="btn p" id="fatGerar">Calcular</button>
+        <button class="btn" id="fatCsv">⬇ Excel (CSV)</button>
+      </div>
+    </div>
+    <p class="muted" style="font-size:12px;margin:0" id="fatAviso"></p>
+  </div>
+  <div class="kpis" id="fatKpis"></div>
+  <div id="fatLista"></div>
+  <div class="card">
+    <h3>📄 Faturas geradas <span class="spacer"></span>
+      <select id="fatStatus" style="width:auto;padding:6px 10px"><option value="">Todas</option><option value="ABERTA">Em aberto</option><option value="PAGA">Pagas</option></select></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Nº</th><th>Pagador</th><th>Período</th><th>Pesagens</th><th>Valor</th><th>Situação</th><th>Gerada em</th><th></th></tr></thead>
+      <tbody id="tbFaturas"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ================= VALORES ================= -->
+<section class="tab" id="tab-valores">
+  <div class="card">
+    <h3>💲 Tabela de valores das pesagens <span class="spacer"></span><button class="btn p sm" id="novoPlano">+ Novo valor / pacote</button></h3>
+    <p class="muted" style="font-size:13px;margin-top:0">
+      <b>Por pesagem</b>: valor fixo a cada pesagem. <b>Por tonelada</b>: valor × toneladas de peso líquido.
+      <b>Pacote mensal</b>: mensalidade fixa com um número de pesagens incluídas; as que passarem pagam o valor do excedente.<br>
+      A tabela marcada como <b>padrão</b> vale para quem não tem tabela própria. Ligue a tabela à empresa (aba Empresas) ou ao motorista que paga por conta própria (aba Motoristas).
+      Na pesagem, se digitar um valor, ele substitui a tabela só naquela pesagem.</p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Ações</th><th>Nome</th><th>Tipo</th><th>Valor</th><th>Pacote</th><th>Em uso por</th><th>Situação</th></tr></thead>
+      <tbody id="tbPlanos"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ================= EMPRESAS ================= -->
+<section class="tab" id="tab-empresas">
+  <div class="card">
+    <h3>🏢 Empresas <span class="pill" id="nEmp"></span><span class="spacer"></span>
+      <input id="buscaEmp" placeholder="Buscar empresa, CNPJ, motorista ou placa…" style="width:280px">
+      <button class="btn p sm" id="novaEmp">+ Nova empresa</button></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Ações</th><th>Empresa</th><th>CNPJ / CPF</th><th>Telefone</th><th>Tabela de valor</th><th>Motoristas vinculados</th><th>Situação</th></tr></thead>
+      <tbody id="tbEmp"></tbody></table></div>
+  </div>
+  <div class="card" id="cardMig">
+    <h3>🔧 Organizar cadastros antigos <span class="spacer"></span><button class="btn sm" id="migAtualizar">↻ Atualizar</button></h3>
+    <p class="muted" style="font-size:13px;margin-top:0">Separa a empresa que foi escrita junto do nome do motorista e junta os cadastros repetidos do mesmo caminhão.
+      <b>Nada é apagado</b>: o nome original fica guardado (dá para desfazer) e o cadastro repetido só fica oculto.
+      Antes de cada ação o sistema faz um backup do banco.</p>
+    <div id="migSep"></div>
+    <div id="migDup"></div>
+    <div id="migFrota"></div>
+    <div id="migFeitos"></div>
+  </div>
+</section>
+
+<!-- ================= CADASTROS ================= -->
+<section class="tab" id="tab-cadastros">
+  <div class="card">
+    <h3>👥 Motoristas e caminhões <span class="pill" id="nCad"></span><span class="spacer"></span>
+      <label style="margin:0;display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;font-weight:600"><input type="checkbox" id="cadOcultos" class="ck"> mostrar ocultos</label>
+      <input id="buscaCad" placeholder="Buscar nome, empresa, placa, tag…" style="width:260px">
+      <button class="btn p sm" id="novoCad">+ Novo cadastro</button></h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Ações</th><th>Motorista / cadastro</th><th>Empresa</th><th>Cobrança</th><th>Placa</th><th>Tag (InControl)</th><th>Nº cartão</th><th>Modelo</th><th>TARA (kg)</th><th>Carga</th></tr></thead>
+      <tbody id="tbCad"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ================= CONFIG ================= -->
+<section class="tab" id="tab-config">
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card">
+      <h3>⚙️ Geral</h3>
+      <div class="f"><label>Nome da empresa (título do ticket)</label><input id="cfgEmpresa"></div>
+      <div class="row">
+        <div class="f"><label>Nº da balança</label><input id="cfgNumBal" type="number"></div>
+        <div class="f"><label>Vias por impressão</label><input id="cfgVias" type="number" min="1" max="5"></div>
+      </div>
+      <div class="f"><label>URL da API da balança</label><input id="cfgBalUrl"></div>
+      <div class="f"><label><input type="checkbox" id="cfgLegado" style="width:auto"> Gravar tickets encerrados também no histórico do sistema antigo</label></div>
+      <div class="f"><label><input type="checkbox" id="cfgKiosk" style="width:auto"> Impressão direta sem janela (abre Chrome com --kiosk-printing; vale ao reiniciar)</label></div>
+      <p class="muted" style="font-size:12px">Banco de dados: <code id="cfgBanco"></code></p>
+    </div>
+    <div class="card">
+      <h3>📡 Leitura de tags (InControl)</h3>
+      <div class="f"><label><input type="checkbox" id="incAtivo" style="width:auto"> Ler tags automaticamente do InControl</label></div>
+      <div class="f"><label>URL da API do InControl</label><input id="incUrl"></div>
+      <div class="row">
+        <div class="f"><label>Usuário</label><input id="incUser"></div>
+        <div class="f"><label>Senha</label><input id="incSenha" type="password"></div>
+      </div>
+      <button class="btn sm" id="incTeste">Testar leitura</button>
+      <pre id="incDebug" style="white-space:pre-wrap;font-size:11px;max-height:220px;overflow:auto;background:var(--bg2);padding:10px;border-radius:8px;margin-top:10px" hidden></pre>
+    </div>
+  </div>
+  <div class="card" id="cardBackup">
+    <h3>💾 Backup automático do banco <span class="spacer"></span>
+      <button class="btn p sm" id="bkpAgora">Fazer backup agora</button></h3>
+    <div class="row">
+      <div class="f"><label><input type="checkbox" id="bkpAtivo" style="width:auto"> Backup automático ligado</label></div>
+      <div class="f"><label>A cada (horas)</label><input id="bkpIntervalo" type="number" min="0.5" step="0.5"></div>
+      <div class="f"><label>Guardar os últimos</label><input id="bkpManter" type="number" min="1"></div>
+      <div class="f" style="flex:3"><label>Pasta dos backups (pode ser um pendrive ou outro disco, ex.: D:\Backups\Balanca)</label><input id="bkpPasta"></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin:0 0 10px" id="bkpResumo"></p>
+    <div class="tbl-wrap" style="max-height:340px;overflow:auto"><table>
+      <thead><tr><th>Arquivo</th><th>Data</th><th>Tipo</th><th>Tamanho</th><th></th></tr></thead>
+      <tbody id="tbBkp"></tbody>
+    </table></div>
+  </div>
+  <div class="acoes"><button class="btn p" id="cfgSalvar">Salvar configurações</button></div>
+</section>
+</main>
+
+<!-- modal cadastro -->
+<div class="modal-bg" id="modalCad">
+  <div class="modal">
+    <h2 id="mcTitulo">Cadastro</h2>
+    <div class="row">
+      <div class="f"><label>Nome do cadastro (motorista / caminhão) *</label><input id="mc_nome"></div>
+      <div class="f"><label>Placa *</label><input id="mc_placa" style="text-transform:uppercase"></div>
+    </div>
+    <div class="cobr" style="margin:0 0 14px">
+      <div class="row">
+        <div class="f" style="flex:2"><label>🏢 Empresa vinculada (para quem ele presta serviço)</label>
+          <div class="pesorow"><select id="mc_empresa_id"></select><button class="btn" id="mcNovaEmp" type="button">+ Nova</button></div></div>
+        <div class="f"><label>Quem paga as pesagens</label><select id="mc_pagador">
+          <option value="EMPRESA">A empresa</option><option value="MOTORISTA">O próprio motorista</option></select></div>
+      </div>
+      <div class="row">
+        <div class="f" style="margin:0"><label>Nome do motorista (sai no ticket)</label><input id="mc_motorista_nome"></div>
+        <div class="f" style="margin:0"><label>Tabela de valor (quando o motorista paga)</label><select id="mc_plano_id"></select></div>
+      </div>
+      <div class="meta" id="mcCobInfo"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Nome no InControl (tag) — ex.: DOMINGOS - 41</label><input id="mc_user_id"></div>
+      <div class="f"><label>Nº do cartão/tag</label><input id="mc_card_no"></div>
+      <div class="f"><label>Nome no cartão (InControl)</label><input id="mc_card_name"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Modelo</label><input id="mc_modelo"></div>
+      <div class="f"><label>TARA (kg)</label><input id="mc_peso_maximo" inputmode="numeric"></div>
+      <div class="f"><label>Ano</label><input id="mc_ano_fabricacao" inputmode="numeric"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Tipo de carga</label><input id="mc_tipo_carga" list="itens"></div>
+      <div class="f"><label>Descrição da carga (Item do ticket)</label><input id="mc_descricao_carga" list="itens"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>CNPJ</label><input id="mc_cnpj"></div>
+      <div class="f"><label>Telefone</label><input id="mc_telefone"></div>
+    </div>
+    <div class="f"><label>E-mail</label><input id="mc_email"></div>
+    <div class="acoes">
+      <button class="btn d" id="mcExcluir">Excluir</button>
+      <div class="spacer"></div>
+      <button class="btn" id="mcFechar">Fechar</button>
+      <button class="btn p" id="mcSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal editar ticket -->
+<div class="modal-bg" id="modalTk">
+  <div class="modal">
+    <h2 id="mtTitulo">Editar ticket</h2>
+    <div class="row">
+      <div class="f"><label>Placa</label><input id="mt_placa" style="text-transform:uppercase"></div>
+      <div class="f" style="flex:2"><label>🏢 Empresa (faturar para)</label><select id="mt_empresa_id"></select></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Cobrar de</label><select id="mt_pagador"><option value="EMPRESA">A empresa</option><option value="MOTORISTA">O próprio motorista</option></select></div>
+      <div class="f"><label>Valor (R$) — em branco usa a tabela</label><input id="mt_valor_manual" inputmode="decimal"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Motorista</label><input id="mt_motorista"></div>
+      <div class="f"><label>Item / Produto</label><input id="mt_item" list="itens"></div>
+    </div>
+    <div class="row">
+      <div class="secao" style="margin:0 0 12px">
+        <div class="tit">Pesagem inicial</div>
+        <div class="f"><label>Peso (kg)</label><input class="peso" id="mt_peso_inicial" inputmode="numeric"></div>
+        <div class="f"><label>Data / hora</label><input type="datetime-local" step="1" id="mt_data_inicial"></div>
+        <div class="f"><label>Operador</label><input id="mt_operador_inicial"></div>
+      </div>
+      <div class="secao" style="margin:0 0 12px">
+        <div class="tit">Pesagem final</div>
+        <div class="f"><label>Peso (kg)</label><input class="peso" id="mt_peso_final" inputmode="numeric"></div>
+        <div class="f"><label>Data / hora</label><input type="datetime-local" step="1" id="mt_data_final"></div>
+        <div class="f"><label>Operador</label><input id="mt_operador_final"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Peso origem / NF (kg)</label><input id="mt_peso_origem" inputmode="numeric"></div>
+      <div class="f"><label>Local para descarregar</label><input id="mt_local_descarga"></div>
+    </div>
+    <div class="f"><label>Observação</label><input id="mt_observacao"></div>
+    <div class="res" style="margin-bottom:12px"><div class="k">Peso líquido</div><div class="v" id="mtLiq">—</div></div>
+    <div class="acoes">
+      <button class="btn d" id="mtExcluir">🗑️ Excluir ticket</button>
+      <div class="spacer"></div>
+      <button class="btn" id="mtFechar">Fechar</button>
+      <button class="btn" id="mtSalvar">Salvar</button>
+      <button class="btn p" id="mtSalvarImp">Salvar e reimprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal editar histórico antigo -->
+<div class="modal-bg" id="modalHist">
+  <div class="modal" style="width:min(620px,100%)">
+    <h2 id="mhTitulo">Editar pesagem</h2>
+    <div class="row">
+      <div class="f"><label>Placa</label><input id="mh_placa" style="text-transform:uppercase"></div>
+      <div class="f"><label>Data / hora</label><input type="datetime-local" step="1" id="mh_data_local"></div>
+    </div>
+    <div class="f"><label>Nome (motorista / cliente)</label><input id="mh_user_name"></div>
+    <div class="row">
+      <div class="f"><label>Modelo</label><input id="mh_modelo"></div>
+      <div class="f"><label>E-mail</label><input id="mh_user_email"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>TARA (kg)</label><input class="peso" id="mh_peso_maximo" inputmode="numeric"></div>
+      <div class="f"><label>Peso final (kg)</label><input class="peso" id="mh_peso_final" inputmode="numeric"></div>
+    </div>
+    <div class="res" style="margin-bottom:12px"><div class="k">Peso líquido (final − TARA)</div><div class="v" id="mhLiq">—</div></div>
+    <div class="acoes">
+      <button class="btn d" id="mhExcluir">🗑️ Excluir</button>
+      <div class="spacer"></div>
+      <button class="btn" id="mhFechar">Fechar</button>
+      <button class="btn" id="mhSalvar">Salvar</button>
+      <button class="btn p" id="mhSalvarImp">Salvar e reimprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal empresa -->
+<div class="modal-bg" id="modalEmp" style="z-index:55">
+  <div class="modal" style="width:min(680px,100%)">
+    <h2 id="meTitulo">Empresa</h2>
+    <div class="f"><label>Nome da empresa *</label><input id="me_nome" style="text-transform:uppercase"></div>
+    <div class="row">
+      <div class="f"><label>CNPJ / CPF</label><input id="me_documento"></div>
+      <div class="f"><label>Telefone</label><input id="me_telefone"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>E-mail</label><input id="me_email"></div>
+      <div class="f"><label>Contato (responsável)</label><input id="me_contato"></div>
+    </div>
+    <div class="f"><label>Endereço</label><input id="me_endereco"></div>
+    <div class="row">
+      <div class="f"><label>Tabela de valor</label><select id="me_plano_id"></select></div>
+      <div class="f"><label>&nbsp;</label><label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="me_ativa" class="ck"> Empresa ativa</label></div>
+    </div>
+    <div class="f"><label>Observação</label><input id="me_observacao"></div>
+    <div id="meMotoristas"></div>
+    <div class="acoes">
+      <button class="btn d" id="meExcluir">🗑️ Excluir</button>
+      <div class="spacer"></div>
+      <button class="btn" id="meFechar">Fechar</button>
+      <button class="btn p" id="meSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal tabela de valor -->
+<div class="modal-bg" id="modalPlano">
+  <div class="modal" style="width:min(600px,100%)">
+    <h2 id="mpTitulo">Tabela de valor</h2>
+    <div class="row">
+      <div class="f" style="flex:2"><label>Nome *</label><input id="mp_nome" placeholder="Ex.: AVULSO, PACOTE 30 PESAGENS"></div>
+      <div class="f"><label>Tipo de cobrança</label><select id="mp_tipo">
+        <option value="PESAGEM">Por pesagem</option><option value="TONELADA">Por tonelada</option><option value="MENSAL">Pacote mensal</option></select></div>
+    </div>
+    <div class="row">
+      <div class="f"><label id="mpValorLbl">Valor por pesagem (R$) *</label><input id="mp_valor" inputmode="decimal"></div>
+      <div class="f mpMensal"><label>Pesagens incluídas por mês (0 = ilimitado)</label><input id="mp_franquia" inputmode="numeric"></div>
+      <div class="f mpMensal"><label>Valor por pesagem excedente (R$)</label><input id="mp_valor_excedente" inputmode="decimal"></div>
+    </div>
+    <div class="f"><label>Observação</label><input id="mp_observacao"></div>
+    <div class="row">
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mp_padrao" class="ck"> Tabela padrão (vale para quem não tem tabela própria)</label>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mp_ativo" class="ck"> Ativa</label>
+    </div>
+    <div class="acoes">
+      <button class="btn d" id="mpExcluir">🗑️ Excluir</button>
+      <div class="spacer"></div>
+      <button class="btn" id="mpFechar">Fechar</button>
+      <button class="btn p" id="mpSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- modal confirmação -->
+<div class="modal-bg" id="modalConf" style="z-index:60">
+  <div class="modal" style="width:min(420px,100%)">
+    <h2 id="confTxt">Confirmar?</h2>
+    <div class="acoes"><button class="btn" id="confNao">Não</button><button class="btn d" id="confSim">Sim</button></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<div id="print-area"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const fmt = n => (n === null || n === undefined || n === '' || isNaN(n)) ? '—' : Number(n).toLocaleString('pt-BR', {maximumFractionDigits: 2});
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const numero = v => { if (v === null || v === undefined) return null; v = String(v).trim(); if (!v) return null;
+  if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.'); else v = v.replace(/\.(?=\d{3}(\D|$))/g, '');
+  const n = parseFloat(v); return isNaN(n) ? null : n; };
+const dataBR = s => { if (!s) return '—'; const [d, h] = String(s).split(/[ T]/); const [a, m, di] = d.split('-'); return `${di}/${m}/${a} ${(h||'').slice(0,5)}`; };
+
+async function api(path, opts = {}) {
+  const r = await fetch('/api/' + path, {headers: {'Content-Type': 'application/json'}, ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined});
+  const j = await r.json().catch(() => ({erro: 'Resposta inválida do servidor'}));
+  if (!r.ok) throw new Error(j && j.erro || ('Erro ' + r.status));
+  return j;
+}
+function toast(msg, tipo = '') {
+  const t = document.createElement('div'); t.className = 'toast ' + tipo; t.innerHTML = msg;
+  $('#toasts').appendChild(t); setTimeout(() => t.remove(), 4500);
+}
+function confirmar(txt) {
+  return new Promise(res => {
+    $('#confTxt').textContent = txt; $('#modalConf').classList.add('on');
+    const fim = v => { $('#modalConf').classList.remove('on'); $('#confSim').onclick = $('#confNao').onclick = null; res(v); };
+    $('#confSim').onclick = () => fim(true); $('#confNao').onclick = () => fim(false);
+  });
+}
+
+let CFG = {}, ESTADO = {ticket: null, cliente: null, peso: null, pagador: 'MOTORISTA'};
+let EMPRESAS = [], PLANOS = [];
+const brl = v => Number(v || 0).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+
+// ---------- navegação ----------
+$('#nav').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('#nav button').forEach(x => x.classList.toggle('on', x === b));
+  $$('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + b.dataset.tab));
+  ({dashboard: carregarDashboard, abertos: carregarAbertos, tickets: carregarTickets, relatorios: abrirRelatorios, historico: carregarHist,
+    cadastros: carregarCad, config: carregarCfg, empresas: carregarEmpresasTab, valores: carregarPlanos, faturamento: abrirFaturamento})[b.dataset.tab]?.();
+};
+function irPara(tab) { $(`#nav button[data-tab="${tab}"]`).click(); }
+
+// ---------- operador / relógio ----------
+try { $('#operador').value = localStorage.getItem('operador') || 'administrator'; } catch (e) {}
+$('#operador').onchange = () => { try { localStorage.setItem('operador', $('#operador').value); } catch (e) {} };
+setInterval(() => $('#relogio').textContent = new Date().toLocaleString('pt-BR'), 1000);
+
+// ---------- balança ----------
+async function lerBalanca() {
+  try {
+    const b = await api('peso'); ESTADO.peso = b;
+    $('#scale').classList.toggle('off', !b.ok);
+    $('#pesoAtual').textContent = b.ok ? fmt(b.peso) : '-----';
+    const e = $('#estavel');
+    e.className = 'estavel ' + (!b.ok ? 'x' : b.estavel ? 's' : 'i');
+    e.textContent = !b.ok ? 'SEM SINAL' : b.estavel ? 'ESTÁVEL' : 'INSTÁVEL';
+    $('#balMsg').textContent = b.ok ? (b.modelo || '') : b.mensagem;
+    $('#dotBal').className = 'dot ' + (b.ok ? 'ok' : 'err');
+  } catch (e) { $('#dotBal').className = 'dot err'; }
+}
+setInterval(lerBalanca, 1000); lerBalanca();
+
+function capturar(alvo) {
+  const b = ESTADO.peso;
+  if (!b || !b.ok) { toast('Balança sem sinal. Digite o peso manualmente.', 'err'); $(alvo).focus(); return; }
+  if (!b.estavel) toast('Atenção: peso capturado com balança INSTÁVEL.', 'warn');
+  $(alvo).value = b.peso; $(alvo).dataset.origem = 'balança'; calcular();
+}
+$('#capIni').onclick = () => capturar('#pesoInicial');
+$('#capFin').onclick = () => capturar('#pesoFinal');
+$('#pesoInicial').oninput = e => { e.target.dataset.origem = 'manual'; calcular(); };
+$('#pesoFinal').oninput = e => { e.target.dataset.origem = 'manual'; calcular(); };
+$('#pesoOrigem').oninput = calcular;
+$('#taraCad').onclick = () => {
+  if (!ESTADO.cliente) return;
+  $('#pesoInicial').value = ESTADO.cliente.tara; $('#pesoInicial').dataset.origem = 'cadastro'; calcular();
+};
+
+function calcular() {
+  const pi = numero($('#pesoInicial').value), pf = numero($('#pesoFinal').value), po = numero($('#pesoOrigem').value);
+  const liq = (pi !== null && pf !== null) ? Math.abs(pf - pi) : null;
+  $('#liq').textContent = liq === null ? '—' : fmt(liq) + ' kg';
+  $('#liqS').textContent = liq === null ? 'Final − Inicial' :
+    `Bruto ${fmt(Math.max(pi, pf))} − Tara ${fmt(Math.min(pi, pf))}`;
+  if (liq !== null && po) {
+    const d = liq - po; $('#dif').textContent = `${d > 0 ? '+' : ''}${fmt(d)} kg (${fmt(d / po * 100)}%)`;
+  } else $('#dif').textContent = '0 kg (0%)';
+  mostrarValorTabela(liq);
+  return {pi, pf, po, liq};
+}
+
+// ---------- cadastro / autocomplete ----------
+let acTimer, acItens = [], acSel = -1;
+$('#busca').oninput = () => { clearTimeout(acTimer); acTimer = setTimeout(buscarAC, 180); };
+$('#busca').onkeydown = e => {
+  const l = $('#acList'); if (l.hidden) return;
+  if (e.key === 'ArrowDown') { acSel = Math.min(acSel + 1, acItens.length - 1); marcaAC(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { acSel = Math.max(acSel - 1, 0); marcaAC(); e.preventDefault(); }
+  if (e.key === 'Enter' && acItens[acSel]) { escolherAC(acItens[acSel]); e.preventDefault(); }
+  if (e.key === 'Escape') l.hidden = true;
+};
+document.addEventListener('click', e => { if (!e.target.closest('.ac')) $('#acList').hidden = true; });
+async function buscarAC() {
+  const q = $('#busca').value.trim(); const l = $('#acList');
+  if (!q) { l.hidden = true; return; }
+  const [emps, cams] = await Promise.all([api('empresas?q=' + encodeURIComponent(q)), api('clientes?limite=15&q=' + encodeURIComponent(q))]);
+  acItens = [...emps.filter(e => e.caminhoes > 1).slice(0, 5).map(e => ({tipo: 'empresa', ...e})), ...cams]; acSel = 0;
+  l.innerHTML = acItens.length ? acItens.map((c, i) => c.tipo === 'empresa'
+    ? `<div class="ac-item emp" data-i="${i}"><b>${esc(c.empresa)}</b><small><span class="pill">${c.caminhoes} caminhões</span>escolher o caminhão…</small></div>`
+    : `<div class="ac-item" data-i="${i}"><b>${esc(c.nome)}</b>
+     <small><span class="pill">${esc(c.placa)}</span><span class="pill">tag: ${esc(c.user_id || '—')}</span>${c.caminhoes_empresa > 1 ? `<span class="pill">🏢 ${esc(c.empresa)}</span>` : ''}TARA ${fmt(c.tara)} kg</small></div>`).join('')
+    : '<div class="ac-item muted">Nenhum cadastro encontrado</div>';
+  l.hidden = false; marcaAC();
+  l.querySelectorAll('[data-i]').forEach(el => el.onclick = () => escolherAC(acItens[el.dataset.i]));
+}
+function escolherAC(item) {
+  $('#acList').hidden = true;
+  if (item.tipo === 'empresa') { $('#busca').value = item.empresa; abrirFrota(item.empresa); }
+  else selecionarCliente(item);
+}
+
+// ---------- frota da empresa (escolher o caminhão) ----------
+let frota = [];
+async function carregarEmpresas() {
+  const l = (await api('empresas')).filter(e => e.caminhoes > 1);
+  $('#selEmpresa').innerHTML = '<option value="">Selecione a empresa…</option>' +
+    l.map(e => `<option value="${esc(e.empresa)}">${esc(e.empresa)} (${e.caminhoes})</option>`).join('');
+}
+$('#selEmpresa').onchange = e => { if (e.target.value) abrirFrota(e.target.value); };
+async function abrirFrota(empresa) {
+  frota = await api('empresas/caminhoes?nome=' + encodeURIComponent(empresa));
+  $('#frotaTit').textContent = `🏢 ${empresa} — ${frota.length} caminh${frota.length > 1 ? 'ões' : 'ão'}. Qual vai pesar agora?`;
+  $('#frotaFiltro').value = ''; $('#selEmpresa').value = empresa;
+  desenharFrota(); $('#frota').hidden = false; $('#frotaFiltro').focus();
+}
+function desenharFrota() {
+  const f = $('#frotaFiltro').value.trim().toUpperCase().replace(/-/g, '');
+  const lista = frota.filter(c => !f || [c.placa, c.modelo, c.motorista, c.nome, c.user_id].some(v => String(v || '').toUpperCase().replace(/-/g, '').includes(f)));
+  $('#frotaGrid').innerHTML = lista.map(c => `<div class="cam ${ESTADO.cliente?.id === c.id ? 'sel' : ''}" data-id="${c.id}" title="${esc(c.nome)}">
+      ${c.ticket_aberto ? `<span class="patio">NO PÁTIO · Nº ${c.ticket_aberto}</span>` : ''}
+      <div class="pl">${esc(c.placa)}</div><div class="md">${esc(c.modelo || '—')} ${c.ano_fabricacao ? '· ' + c.ano_fabricacao : ''}</div>
+      <div class="md">${esc(c.nome)}</div>
+      <div class="tr">TARA <b>${fmt(c.tara)}</b> kg</div></div>`).join('') || '<div class="vazio">Nenhum caminhão encontrado.</div>';
+  $$('#frotaGrid .cam').forEach(el => el.onclick = () => {
+    const c = frota.find(x => x.id == el.dataset.id);
+    if (c.ticket_aberto) { $('#frota').hidden = true; carregarTicketNoForm(c.ticket_aberto); toast(`Caminhão ${esc(c.placa)} já tem a 1ª pesagem — finalize o ticket ${c.ticket_aberto}.`); return; }
+    selecionarCliente(c, ESTADO.tag); $('#frota').hidden = true;
+    toast(`Caminhão selecionado: <b>${esc(c.placa)}</b> · TARA ${fmt(c.tara)} kg`, 'ok');
+  });
+}
+$('#frotaFiltro').oninput = desenharFrota;
+$('#frotaFiltro').onkeydown = e => { if (e.key === 'Enter') { const el = $('#frotaGrid .cam'); if (el) el.click(); } };
+$('#frotaFechar').onclick = () => $('#frota').hidden = true;
+function marcaAC() { $$('#acList .ac-item').forEach((el, i) => el.classList.toggle('sel', i === acSel)); }
+
+function selecionarCliente(c, viaTag) {
+  ESTADO.cliente = c; $('#acList').hidden = true; $('#busca').value = c.nome;
+  $('#placa').value = c.placa || '';
+  $('#motorista').value = c.motorista || ''; $('#item').value = c.descricao_carga || c.tipo_carga || '';
+  $('#tkEmpresa').value = c.empresa_id || ''; setPagador(c.pagador);
+  $('#cliBox').classList.add('on');
+  $('#cliBox').innerHTML = `<div class="cli-head">${c.empresa_vinculada
+      ? `<span class="emp-badge" title="Empresa vinculada">🏢 ${esc(c.empresa_vinculada)}</span>`
+      : `<span class="emp-badge aut">👤 ${c.caminhoes_empresa > 1 ? 'Frota ' + esc(c.empresa) + ' — sem empresa cadastrada' : 'Sem empresa vinculada'}</span>`}
+    <span class="mot">Motorista <b>${esc(c.motorista)}</b></span>
+    ${c.empresa_vinculada && c.pagador === 'EMPRESA' ? '<span class="pill">presta serviço · cobrança na empresa</span>' : ''}</div>
+    <span class="muted">Cadastro: ${esc(c.nome)}</span> — ${esc(c.modelo || '')} ${c.ano_fabricacao ? '(' + c.ano_fabricacao + ')' : ''}<br>
+    <span class="pill">Placa ${esc(c.placa)}</span><span class="pill">Tag: ${esc(c.user_id || '—')}</span><span class="pill">Cartão ${esc(c.card_no || '—')}</span>
+    <span class="pill">TARA cadastro: <b>${fmt(c.tara)} kg</b></span>
+    <button class="btn sm" id="btnEditCad" style="margin-left:6px">✏️ Editar cadastro</button>
+    ${(c.caminhoes_empresa || 1) > 1
+      ? `<div style="margin-top:8px">🏢 Empresa <b>${esc(c.empresa)}</b> tem ${c.caminhoes_empresa} caminhões
+         <button class="btn sm b" id="btnTrocar" style="margin-left:8px">🚚 Trocar caminhão</button></div>` : ''}`;
+  const bt = $('#btnTrocar'); if (bt) bt.onclick = () => abrirFrota(c.empresa);
+  $('#btnEditCad').onclick = () => abrirCad(c);
+  $('#taraCad').disabled = !c.tara;
+  if (viaTag) { ESTADO.tag = viaTag; $('#tkEmissor').textContent = 'Emissor: Tag'; }
+  calcular();
+}
+
+// ---------- tags ----------
+function mostrarTagRes(lista, codigo) {
+  if (!lista.length) { $('#tagRes').innerHTML = `<p class="muted">Nenhum cadastro para "<b>${esc(codigo)}</b>". <a href="#" id="cadRapido" style="color:var(--blue)">Cadastrar agora</a></p>`;
+    $('#cadRapido').onclick = e => { e.preventDefault(); abrirCad({nome: codigo.replace(/\s*-\s*\d+\s*$/, ''), user_id: codigo, card_no: (codigo.match(/(\d+)\s*$/) || [])[1] || ''}); };
+    return; }
+  if (lista[0].confianca >= 80 && (lista.length === 1 || lista[1].confianca < lista[0].confianca)) {
+    selecionarCliente(lista[0], codigo); $('#tagRes').innerHTML = ''; toast(`Tag identificada: <b>${esc(lista[0].nome)}</b> · ${esc(lista[0].placa)}`, 'ok');
+    if (lista[0].caminhoes_empresa > 1) toast(`🏢 ${esc(lista[0].empresa)} tem ${lista[0].caminhoes_empresa} caminhões — confira a placa ou clique em "Trocar caminhão".`, 'warn');
+    return;
+  }
+  $('#tagRes').innerHTML = '<label>Escolha o cadastro:</label>' + lista.map((c, i) =>
+    `<div class="ac-item" data-i="${i}" style="border:1px solid var(--line);border-radius:8px;margin-bottom:6px"><b>${esc(c.nome)}</b><small><span class="pill">${esc(c.placa)}</span>tag: ${esc(c.user_id || '—')}</small></div>`).join('');
+  $$('#tagRes [data-i]').forEach(el => el.onclick = () => { selecionarCliente(lista[el.dataset.i], codigo); $('#tagRes').innerHTML = ''; });
+}
+async function identificar() {
+  const c = $('#tagCodigo').value.trim(); if (!c) return;
+  mostrarTagRes(await api('tag/buscar?codigo=' + encodeURIComponent(c)), c);
+}
+$('#btnTag').onclick = identificar;
+$('#tagCodigo').onkeydown = e => { if (e.key === 'Enter') identificar(); };
+
+let ultimaChaveTag = null;
+async function lerTag() {
+  if (!CFG.incontrol?.ativo) { $('#dotTag').className = 'dot'; return; }
+  try {
+    const r = await api('tag/ultima');
+    if (r.erro) { $('#dotTag').className = 'dot err'; $('#tagInfo').textContent = 'InControl: ' + r.erro; return; }
+    $('#dotTag').className = 'dot ok';
+    if (!r.usuario) { $('#tagInfo').textContent = 'Conectado ao InControl — nenhum evento com usuário'; return; }
+    $('#tagUser').textContent = r.usuario;
+    $('#tagInfo').textContent = r.clientes.length ? `Cadastro: ${r.clientes[0].nome} · ${r.clientes[0].placa}` : 'Tag sem cadastro no sistema';
+    if (ultimaChaveTag !== null && r.chave !== ultimaChaveTag) {
+      $('#tagbox').classList.remove('novo'); void $('#tagbox').offsetWidth; $('#tagbox').classList.add('novo');
+      toast(`📡 Nova tag lida: <b>${esc(r.usuario)}</b>`, 'ok');
+      if (!ESTADO.ticket && !$('#placa').value) { $('#tagCodigo').value = r.usuario; mostrarTagRes(r.clientes, r.usuario); }
+    }
+    ultimaChaveTag = r.chave;
+  } catch (e) { $('#dotTag').className = 'dot err'; }
+}
+setInterval(lerTag, 3000);
+
+// ---------- ticket ----------
+function dadosForm() {
+  const {pi, pf, po} = calcular(); const op = $('#operador').value || 'administrator';
+  const d = {
+    emissor: ESTADO.tag ? 'Tag' : 'Manual', cliente_id: ESTADO.cliente?.id || null, tag: ESTADO.tag || null,
+    placa: $('#placa').value, transportadora: nomeEmpresaSel(), motorista: $('#motorista').value,
+    empresa_id: $('#tkEmpresa').value || null, pagador: ESTADO.pagador, pagador_nome: pagadorNome(),
+    valor_manual: numero($('#valorManual').value),
+    item: $('#item').value, peso_origem: po, local_descarga: $('#localDescarga').value, observacao: $('#observacao').value,
+  };
+  const t = ESTADO.ticket;
+  if (!t || t.peso_inicial !== pi) Object.assign(d, {peso_inicial: pi, operador_inicial: op, balanca_inicial: CFG.numero_balanca,
+    origem_inicial: $('#pesoInicial').dataset.origem || 'manual', data_inicial: null});
+  if (pf !== null) Object.assign(d, {peso_final: pf, operador_final: op, balanca_final: CFG.numero_balanca,
+    origem_final: $('#pesoFinal').dataset.origem || 'manual', data_final: null});
+  if (t) { if (t.peso_inicial === pi) delete d.peso_inicial; delete d.emissor; }
+  return d;
+}
+function validar(encerrar) {
+  const {pi, pf} = calcular();
+  if (!$('#placa').value.trim()) { toast('Informe a placa.', 'err'); $('#placa').focus(); return false; }
+  if (pi === null) { toast('Informe o peso inicial.', 'err'); $('#pesoInicial').focus(); return false; }
+  if (encerrar && pf === null) { toast('Informe o peso final para encerrar.', 'err'); $('#pesoFinal').focus(); return false; }
+  if (ESTADO.pagador === 'EMPRESA' && !$('#tkEmpresa').value) { toast('Selecione a empresa ou cobre do motorista.', 'err'); return false; }
+  return true;
+}
+async function salvar(encerrar) {
+  if (!validar(encerrar)) return;
+  const d = dadosForm(); d.encerrar = encerrar;
+  try {
+    const t = ESTADO.ticket ? await api('tickets/' + ESTADO.ticket.id, {method: 'PUT', body: d}) : await api('tickets', {method: 'POST', body: d});
+    if (encerrar) { toast(`Ticket <b>${t.id}</b> encerrado · líquido ${fmt(t.peso_liquido)} kg`, 'ok'); imprimir(t); limpar(); }
+    else { toast(`Ticket <b>${t.id}</b> salvo como ABERTO. Finalize em "Tickets abertos".`, 'ok'); limpar(); }
+    atualizarResumo();
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#btnAbrir').onclick = () => salvar(false);
+$('#btnEncerrar').onclick = () => salvar(true);
+$('#btnLimpar').onclick = limpar;
+$('#btnCancelar').onclick = async () => {
+  if (!ESTADO.ticket || !await confirmar(`Cancelar o ticket ${ESTADO.ticket.id}?`)) return;
+  await api(`tickets/${ESTADO.ticket.id}/cancelar`, {method: 'POST'}); toast('Ticket cancelado.', 'warn'); limpar(); atualizarResumo();
+};
+function limpar() {
+  ESTADO.ticket = null; ESTADO.cliente = null; ESTADO.tag = null;
+  ['busca', 'placa', 'motorista', 'item', 'pesoInicial', 'pesoFinal', 'pesoOrigem', 'localDescarga', 'observacao', 'tagCodigo', 'valorManual']
+    .forEach(id => { $('#' + id).value = ''; delete $('#' + id).dataset.origem; });
+  $('#cliBox').classList.remove('on'); $('#tagRes').innerHTML = ''; $('#taraCad').disabled = true;
+  $('#frota').hidden = true; $('#selEmpresa').value = ''; $('#tkEmpresa').value = ''; setPagador('MOTORISTA');
+  $('#tkNumero').textContent = 'NOVO'; $('#tkEmissor').textContent = 'Emissor: Manual'; $('#btnCancelar').hidden = true;
+  $('#btnAbrir').textContent = '💾 Salvar 1ª pesagem (ticket aberto)';
+  $('#metaIni').textContent = 'Data/hora e operador registrados ao salvar.';
+  $('#metaFin').textContent = 'Pode ficar em branco e ser feita depois (ticket aberto).';
+  calcular();
+}
+async function carregarTicketNoForm(id) {
+  const t = await api('tickets/' + id); limpar(); ESTADO.ticket = t;
+  if (t.cliente_id) { try { const c = await api('clientes/' + t.cliente_id); selecionarCliente(c); } catch (e) {} }
+  $('#placa').value = t.placa || ''; $('#motorista').value = t.motorista || '';
+  if (t.pagador) { $('#tkEmpresa').value = t.empresa_id || ''; setPagador(t.pagador); }
+  $('#valorManual').value = t.valor_manual ?? '';
+  $('#item').value = t.item || ''; $('#pesoInicial').value = t.peso_inicial ?? ''; $('#pesoInicial').dataset.origem = t.origem_inicial || 'manual';
+  $('#pesoOrigem').value = t.peso_origem ?? ''; $('#localDescarga').value = t.local_descarga || ''; $('#observacao').value = t.observacao || '';
+  ESTADO.tag = t.tag; $('#tkNumero').textContent = 'Nº ' + t.id; $('#tkEmissor').textContent = 'Emissor: ' + t.emissor;
+  $('#metaIni').textContent = `${dataBR(t.data_inicial)} · Balança ${t.balanca_inicial ?? '-'} · ${t.operador_inicial || ''} · ${t.origem_inicial || ''}`;
+  $('#metaFin').textContent = 'Capture o peso final e clique em "Encerrar e imprimir".';
+  $('#btnCancelar').hidden = false; $('#btnAbrir').textContent = '💾 Salvar alterações';
+  irPara('pesagem'); calcular(); $('#pesoFinal').focus();
+}
+
+// ---------- impressão ----------
+function htmlTicket(t) {
+  const ini = t.peso_inicial <= t.peso_final;
+  const pct = t.peso_origem ? `${fmt(t.diferenca_origem)} kg (${fmt(t.diferenca_pct)}%)` : '0 kg (0%)';
+  const emp = t.pagador ? (t.empresa_nome || 'Sem empresa (autônomo)') : (t.empresa_nome || t.transportadora || '');
+  const cob = !t.pagador ? '—' : t.pagador === 'EMPRESA'
+    ? `<b>Empresa</b> ${esc(t.empresa_nome)}${t.motorista ? `<br>Motorista ${esc(t.motorista)} prestando serviço` : ''}`
+    : `<b>Próprio motorista</b><br>${esc(t.pagador_nome || t.motorista)}`;
+  return `<div class="tkp">
+  <h1>${esc(CFG.empresa || 'BALANÇA TRANSTINO')}</h1>
+  <table>
+    <tr><td style="width:62%" colspan="2"><span class="h">TICKET DE PESAGEM</span> &nbsp;&nbsp; <span class="big">${String(t.id).padStart(2, '0')}</span></td>
+        <td colspan="2">Ticket ${t.status === 'ENCERRADO' ? 'Encerrado' : esc(t.status)}</td></tr>
+    <tr><td colspan="2" class="empd"><span class="h">EMPRESA / CLIENTE</span><br><span class="emp-big">${esc(emp || '—')}</span></td>
+        <td colspan="2" class="empd"><span class="h">Cobrança</span><br>${cob}</td></tr>
+    <tr><td colspan="2"><span class="h">Placa</span> <span class="big">${esc(t.placa)}</span></td><td colspan="2"><span class="h">Motorista</span><br><b>${esc(t.motorista)}</b></td></tr>
+    <tr><td colspan="2"><span class="h">Items</span><br>${esc(t.item)}</td><td colspan="2"><span class="h">Emissor</span><br>${esc(t.emissor)}</td></tr>
+    <tr><td colspan="2" style="width:50%"><span class="h">Pesagem Inicial</span><br>Data / Hora: ${dataBR(t.data_inicial)}<br>Balança: ${t.balanca_inicial ?? ''}<br>
+        ${ini ? 'TARA' : 'Peso'}: <b>${fmt(t.peso_inicial)}</b> kg<br>Operador: ${esc(t.operador_inicial)}</td>
+        <td colspan="2"><span class="h">Pesagem Final</span><br>Data / Hora: ${dataBR(t.data_final)}<br>Balança: ${t.balanca_final ?? ''}<br>
+        ${ini ? 'Peso' : 'TARA'}: <b>${fmt(t.peso_final)}</b> kg<br>Operador: ${esc(t.operador_final)}</td></tr>
+    <tr><td colspan="2">Peso Líquido<br><span class="big">${fmt(t.peso_liquido)} kg</span></td><td colspan="2">Diferenças Origem<br>${pct}</td></tr>
+  </table>
+  <div class="local">Local para Descarregar: ${esc(t.local_descarga)}</div>
+  ${t.observacao ? `<div class="rod">Obs.: ${esc(t.observacao)}</div>` : ''}
+  ${t.valor_manual !== null && t.valor_manual !== undefined ? `<div class="rod">Valor da pesagem: ${brl(t.valor_manual)}</div>` : ''}
+  <div class="rod">Impresso em ${new Date().toLocaleString('pt-BR')}</div>
+</div>`;
+}
+function imprimir(t) {
+  const vias = Math.max(1, parseInt(CFG.vias_impressao) || 1);
+  $('#print-area').innerHTML = Array.from({length: vias}, () => htmlTicket(t)).join('');
+  setTimeout(() => window.print(), 150);
+}
+async function reimprimir(id) { imprimir(await api('tickets/' + id)); }
+
+// ---------- listas ----------
+async function atualizarResumo() {
+  try {
+    const s = await api('status'); CFG = s.config; const r = s.resumo; statusBackup(s.backup);
+    $('#empresa').textContent = CFG.empresa; $('#numBal').textContent = CFG.numero_balanca; $('#nAbertos').textContent = r.abertos;
+    $('#kpis').innerHTML = [['Tickets hoje', r.tickets_hoje], ['Líquido hoje', fmt(r.liquido_hoje) + ' kg'],
+      ['Tickets abertos', r.abertos], ['Cadastros', r.cadastros]].map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+    if (!CFG.incontrol.ativo) { $('#tagInfo').textContent = 'Leitura automática desativada — ative em Configurações'; $('#dotTag').className = 'dot'; }
+  } catch (e) { toast('Erro ao conectar no servidor: ' + e.message, 'err'); }
+}
+async function carregarAbertos() {
+  const l = await api('tickets?status=ABERTO');
+  $('#listaAbertos').innerHTML = l.length ? l.map(t => `<div class="tk" data-id="${t.id}"><div class="n">Ticket ${t.id} · ${dataBR(t.data_inicial)}</div>
+    <div class="p">${esc(t.placa)}</div><div>${esc(t.motorista || '')}</div>
+    ${t.empresa_nome ? `<div><span class="emp-badge sm">🏢 ${esc(t.empresa_nome)}</span></div>` : ''}
+    <div class="muted">${esc(t.item || '')} · 1ª pesagem <b style="color:var(--txt)">${fmt(t.peso_inicial)} kg</b></div>
+    <div class="row" style="margin-top:10px"><button class="btn sm" data-ed="${t.id}">✏️ Editar</button><button class="btn sm d" data-ex="${t.id}">🗑️ Excluir</button></div></div>`).join('')
+    : '<div class="vazio">Nenhum ticket aguardando segunda pesagem.</div>';
+  $$('#listaAbertos .tk').forEach(el => el.onclick = e => {
+    if (e.target.dataset.ed) return abrirTicketEdicao(e.target.dataset.ed);
+    if (e.target.dataset.ex) return excluirTicket(e.target.dataset.ex);
+    carregarTicketNoForm(el.dataset.id);
+  });
+}
+async function carregarTickets() {
+  const l = await api('tickets?q=' + encodeURIComponent($('#buscaTickets').value));
+  $('#tbTickets').innerHTML = l.map(t => `<tr><td>${t.id}</td><td class="st-${t.status}">${t.status}</td><td><b>${esc(t.placa)}</b></td>
+    <td>${esc(t.empresa_nome || '')}</td><td>${esc(t.motorista)}</td>
+    <td>${t.pagador ? (t.pagador === 'EMPRESA' ? '🏢 Empresa' : '👤 ' + esc(t.pagador_nome || 'Motorista')) : ''}${t.valor_manual != null ? ` <span class="pill">${brl(t.valor_manual)}</span>` : ''}</td><td>${esc(t.item)}</td><td class="num">${fmt(t.peso_inicial)}</td><td class="num">${fmt(t.peso_final)}</td>
+    <td class="num"><b>${fmt(t.peso_liquido)}</b></td><td>${dataBR(t.data_final || t.data_inicial)}</td>
+    <td>${t.status === 'ABERTO' ? `<button class="btn sm" onclick="carregarTicketNoForm(${t.id})">Finalizar</button>` : ''}
+        ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="reimprimir(${t.id})">🖨️ Reimprimir</button>` : ''}
+        <button class="btn sm" onclick="abrirTicketEdicao(${t.id})">✏️ Editar</button>
+        <button class="btn sm d" onclick="excluirTicket(${t.id})">🗑️</button></td></tr>`).join('')
+    || '<tr><td colspan="12" class="vazio">Nenhum ticket ainda.</td></tr>';
+}
+// ---------- editar / excluir ticket ----------
+const CAMPOS_TK = ['placa', 'empresa_id', 'pagador', 'valor_manual', 'motorista', 'item', 'peso_inicial', 'data_inicial', 'operador_inicial',
+  'peso_final', 'data_final', 'operador_final', 'peso_origem', 'local_descarga', 'observacao'];
+let tkEdit = null;
+const paraInput = s => s ? String(s).replace(' ', 'T').slice(0, 19) : '';
+const doInput = s => s ? (s.length === 16 ? s + ':00' : s).replace('T', ' ') : null;
+async function abrirTicketEdicao(id) {
+  tkEdit = await api('tickets/' + id);
+  $('#mtTitulo').textContent = `Editar ticket Nº ${tkEdit.id} · ${tkEdit.status}`;
+  $('#mt_empresa_id').innerHTML = opcoesEmpresas(tkEdit.empresa_id);
+  tkEdit.pagador = tkEdit.pagador || (tkEdit.empresa_id ? 'EMPRESA' : 'MOTORISTA');
+  CAMPOS_TK.forEach(k => $('#mt_' + k).value = k.startsWith('data_') ? paraInput(tkEdit[k]) : (tkEdit[k] ?? ''));
+  $('#mtSalvarImp').hidden = tkEdit.status !== 'ENCERRADO';
+  calcEdicao(); $('#modalTk').classList.add('on');
+}
+function calcEdicao() {
+  const pi = numero($('#mt_peso_inicial').value), pf = numero($('#mt_peso_final').value);
+  $('#mtLiq').textContent = pi !== null && pf !== null ? fmt(Math.abs(pf - pi)) + ' kg' : '—';
+}
+$('#mt_peso_inicial').oninput = calcEdicao; $('#mt_peso_final').oninput = calcEdicao;
+$('#mtFechar').onclick = () => $('#modalTk').classList.remove('on');
+async function salvarEdicao(reimp) {
+  const d = {editar: true};
+  CAMPOS_TK.forEach(k => d[k] = $('#mt_' + k).value.trim());
+  ['peso_inicial', 'peso_final', 'peso_origem'].forEach(k => d[k] = numero(d[k]));
+  d.data_inicial = doInput(d.data_inicial); d.data_final = doInput(d.data_final);
+  d.empresa_id = d.empresa_id || null; d.valor_manual = numero(d.valor_manual);
+  if (d.pagador === 'EMPRESA' && !d.empresa_id) return toast('Selecione a empresa ou cobre do motorista.', 'err');
+  if (d.pagador === 'MOTORISTA') d.pagador_nome = tkEdit.pagador === 'MOTORISTA' && tkEdit.pagador_nome ? tkEdit.pagador_nome : d.motorista;
+  if (!d.placa) return toast('Informe a placa.', 'err');
+  if (d.peso_inicial === null) return toast('Informe o peso inicial.', 'err');
+  if (tkEdit.status === 'ENCERRADO' && d.peso_final === null) return toast('Ticket encerrado precisa do peso final.', 'err');
+  try {
+    const t = await api('tickets/' + tkEdit.id, {method: 'PUT', body: d});
+    $('#modalTk').classList.remove('on'); toast(`Ticket ${t.id} atualizado.`, 'ok');
+    if (reimp) imprimir(t);
+    recarregarListas();
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#mtSalvar').onclick = () => salvarEdicao(false);
+$('#mtSalvarImp').onclick = () => salvarEdicao(true);
+$('#mtExcluir').onclick = () => excluirTicket(tkEdit.id);
+async function excluirTicket(id) {
+  if (!await confirmar(`Excluir definitivamente o ticket ${id}? (também sai do histórico antigo)`)) return;
+  try {
+    await api('tickets/' + id, {method: 'DELETE'});
+    $('#modalTk').classList.remove('on'); toast(`Ticket ${id} excluído.`, 'warn');
+    if (ESTADO.ticket && ESTADO.ticket.id == id) limpar();
+    recarregarListas();
+  } catch (e) { toast(e.message, 'err'); }
+}
+function recarregarListas() {
+  atualizarResumo();
+  if ($('#tab-tickets').classList.contains('on')) carregarTickets();
+  if ($('#tab-abertos').classList.contains('on')) carregarAbertos();
+  if ($('#tab-historico').classList.contains('on')) carregarHist();
+}
+let tmr; $('#buscaTickets').oninput = () => { clearTimeout(tmr); tmr = setTimeout(carregarTickets, 250); };
+async function carregarHist() {
+  const l = await api('historico?q=' + encodeURIComponent($('#buscaHist').value));
+  window._hist = l;
+  $('#tbHist').innerHTML = l.map((p, i) => `<tr><td>${p.id}</td><td>${dataBR(p.data_local)}</td><td><b>${esc(p.placa)}</b></td><td>${esc(p.user_name)}</td>
+    <td class="num">${fmt(p.peso_maximo)}</td><td class="num">${fmt(p.peso_final)}</td><td class="num"><b>${fmt(p.peso_liquido)}</b></td>
+    <td class="muted">${p.cor === 'PESAGEM_NOVA' ? 'sistema novo' : 'sistema antigo'}</td>
+    <td><button class="btn sm" onclick="imprimirHist(${i})">🖨️</button>
+        <button class="btn sm" onclick="editarHist(${i})">✏️ Editar</button>
+        <button class="btn sm d" onclick="excluirHist(${i})">🗑️</button></td></tr>`).join('')
+    || '<tr><td colspan="9" class="vazio">Sem registros.</td></tr>';
+}
+function imprimirHist(i) {
+  const p = window._hist[i]; if (!p) return; const d = p.data_local;
+  imprimir({id: 'H' + p.id, status: 'ENCERRADO', placa: p.placa, transportadora: p.user_name, emissor: 'Sistema antigo',
+    item: '', motorista: p.user_name, peso_inicial: p.peso_maximo, peso_final: p.peso_final, peso_liquido: p.peso_liquido,
+    data_inicial: d, data_final: d, balanca_inicial: CFG.numero_balanca, balanca_final: CFG.numero_balanca,
+    operador_inicial: '', operador_final: '', local_descarga: ''});
+}
+// ---------- editar / excluir histórico antigo ----------
+const CAMPOS_HIST = ['placa', 'data_local', 'user_name', 'modelo', 'user_email', 'peso_maximo', 'peso_final'];
+let histEdit = null;
+function editarHist(i) {
+  const p = window._hist[i];
+  // registro criado por um ticket do sistema novo: edita o ticket (que atualiza o histórico junto)
+  if (p.ticket_id) return abrirTicketEdicao(p.ticket_id);
+  histEdit = p;
+  $('#mhTitulo').textContent = `Editar pesagem #${p.id} (sistema antigo)`;
+  CAMPOS_HIST.forEach(k => $('#mh_' + k).value = k === 'data_local' ? paraInput(p[k]) : (p[k] ?? ''));
+  calcHist(); $('#modalHist').classList.add('on');
+}
+function calcHist() {
+  const t = numero($('#mh_peso_maximo').value), f = numero($('#mh_peso_final').value);
+  const l = t !== null && f !== null ? f - t : null;
+  $('#mhLiq').textContent = l === null ? '—' : fmt(l) + ' kg'; $('#mhLiq').classList.toggle('neg', l !== null && l < 0);
+}
+$('#mh_peso_maximo').oninput = calcHist; $('#mh_peso_final').oninput = calcHist;
+$('#mhFechar').onclick = () => $('#modalHist').classList.remove('on');
+async function salvarHist(reimp) {
+  const d = {}; CAMPOS_HIST.forEach(k => d[k] = $('#mh_' + k).value.trim());
+  d.peso_maximo = numero(d.peso_maximo); d.peso_final = numero(d.peso_final); d.data_local = doInput(d.data_local);
+  if (!d.placa) return toast('Informe a placa.', 'err');
+  if (d.peso_maximo === null || d.peso_final === null) return toast('Informe a TARA e o peso final.', 'err');
+  try {
+    const p = await api('historico/' + histEdit.id, {method: 'PUT', body: d});
+    $('#modalHist').classList.remove('on'); toast(`Pesagem #${p.id} atualizada.`, 'ok');
+    await carregarHist();
+    if (reimp) imprimirHist(window._hist.findIndex(x => x.id === p.id));
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#mhSalvar').onclick = () => salvarHist(false);
+$('#mhSalvarImp').onclick = () => salvarHist(true);
+$('#mhExcluir').onclick = () => excluirHist(window._hist.findIndex(x => x.id === histEdit.id));
+async function excluirHist(i) {
+  const p = window._hist[i];
+  if (p.ticket_id) return excluirTicket(p.ticket_id).then(carregarHist);
+  if (!await confirmar(`Excluir definitivamente a pesagem #${p.id} (${p.placa} · ${fmt(p.peso_liquido)} kg)?`)) return;
+  try {
+    await api('historico/' + p.id, {method: 'DELETE'});
+    $('#modalHist').classList.remove('on'); toast(`Pesagem #${p.id} excluída.`, 'warn'); carregarHist(); atualizarResumo();
+  } catch (e) { toast(e.message, 'err'); }
+}
+let tmh; $('#buscaHist').oninput = () => { clearTimeout(tmh); tmh = setTimeout(carregarHist, 250); };
+
+// ---------- dashboard ----------
+let DASH = null, dashDias = 30, dashTimer = null;
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const SEMANA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+const kg = v => fmt(Math.round(v || 0)) + ' kg';
+const plural = (n, um, varios) => n === 1 ? um : varios;
+const ton = v => (v / 1000).toLocaleString('pt-BR', {maximumFractionDigits: v >= 100000 ? 0 : 1}) + ' t';
+const svgNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, pai) { const e = document.createElementNS(svgNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (pai) pai.appendChild(e); return e; }
+function niceMax(v) { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p; }
+const eixo = v => v >= 1000000 ? (v / 1000000).toLocaleString('pt-BR') + ' mil t' : v >= 1000 ? (v / 1000).toLocaleString('pt-BR') + ' t' : fmt(v);
+
+// tooltip único (conteúdo sempre via textContent)
+function dica(e, forte, ...linhas) {
+  const t = $('#vizTip'); t.replaceChildren();
+  const s = document.createElement('strong'); s.textContent = forte; t.appendChild(s);
+  linhas.forEach(l => { const x = document.createElement('span'); x.textContent = l; t.appendChild(x); });
+  t.hidden = false;
+  const r = t.getBoundingClientRect(); let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 14;
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+}
+const semDica = () => { $('#vizTip').hidden = true; };
+
+function tabelaVis(id, cab, linhas) {
+  $('#' + id + 'Tab').innerHTML = `<table><thead><tr>${cab.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${
+    linhas.map(l => `<tr>${l.map((c, i) => `<td class="${i ? 'num' : ''}">${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+$$('[data-tab-de]').forEach(b => b.onclick = () => {
+  const id = b.dataset.tabDe, tab = $('#' + id + 'Tab'); tab.hidden = !tab.hidden; $('#' + id).hidden = !tab.hidden;
+  b.textContent = tab.hidden ? 'Tabela' : 'Gráfico';
+});
+
+// linha + área com crosshair
+function grafLinha(el, pts) {
+  el.replaceChildren(); const W = Math.max(el.clientWidth, 300), H = 250, m = {l: 54, r: 14, t: 14, b: 28};
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, max = niceMax(Math.max(...pts.map(p => p.v), 1));
+  const X = i => m.l + (pts.length < 2 ? iw / 2 : i * iw / (pts.length - 1)), Y = v => m.t + ih * (1 - v / max);
+  const svg = sv('svg', {viewBox: `0 0 ${W} ${H}`, height: H, role: 'img', 'aria-label': 'Peso líquido por dia'}, el);
+  for (let k = 0; k <= 4; k++) { const v = max * k / 4, y = Y(v);
+    sv('line', {x1: m.l, x2: W - m.r, y1: y, y2: y, class: 'gl'}, svg);
+    sv('text', {x: m.l - 8, y: y + 4, 'text-anchor': 'end', class: 'ax'}, svg).textContent = eixo(v); }
+  const passo = Math.max(1, Math.ceil(pts.length / 7));
+  pts.forEach((p, i) => { if (i % passo === 0 || i === pts.length - 1)
+    sv('text', {x: X(i), y: H - 8, 'text-anchor': i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle', class: 'ax'}, svg).textContent = p.rot; });
+  const linha = pts.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join('');
+  const grad = sv('linearGradient', {id: 'gArea', x1: 0, x2: 0, y1: 0, y2: 1}, sv('defs', {}, svg));
+  sv('stop', {offset: '0%', 'stop-color': '#3987e5', 'stop-opacity': .32}, grad); sv('stop', {offset: '100%', 'stop-color': '#3987e5', 'stop-opacity': 0}, grad);
+  sv('path', {d: `${linha}L${X(pts.length - 1)},${Y(0)}L${X(0)},${Y(0)}Z`, fill: 'url(#gArea)'}, svg);
+  sv('path', {d: linha, fill: 'none', stroke: 'var(--s1)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'}, svg);
+  const cross = sv('line', {y1: m.t, y2: m.t + ih, stroke: 'var(--mut)', 'stroke-width': 1, 'stroke-dasharray': '3 3', visibility: 'hidden'}, svg);
+  const pto = sv('circle', {r: 5, fill: 'var(--s1)', stroke: 'var(--card)', 'stroke-width': 2, visibility: 'hidden'}, svg);
+  const hit = sv('rect', {x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent'}, svg);
+  hit.addEventListener('pointermove', e => {
+    const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(pts.length - 1, Math.round(pts.length < 2 ? 0 : (x - m.l) / iw * (pts.length - 1)))), p = pts[i];
+    cross.setAttribute('x1', X(i)); cross.setAttribute('x2', X(i)); pto.setAttribute('cx', X(i)); pto.setAttribute('cy', Y(p.v));
+    cross.setAttribute('visibility', 'visible'); pto.setAttribute('visibility', 'visible');
+    dica(e, kg(p.v), p.longo, `${p.n} pesage${p.n === 1 ? 'm' : 'ns'}`);
+  });
+  hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); pto.setAttribute('visibility', 'hidden'); semDica(); });
+}
+
+// colunas (ponta arredondada de 4px, base reta, 2px de espaço)
+function grafColunas(el, itens) {
+  el.replaceChildren(); const W = Math.max(el.clientWidth, 300), H = 250, m = {l: 54, r: 8, t: 14, b: 28};
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, max = niceMax(Math.max(...itens.map(p => p.v), 1));
+  const banda = iw / itens.length, bw = Math.max(4, Math.min(42, banda * .62)), Y = v => m.t + ih * (1 - v / max);
+  const svg = sv('svg', {viewBox: `0 0 ${W} ${H}`, height: H, role: 'img', 'aria-label': 'Toneladas por mês'}, el);
+  for (let k = 0; k <= 4; k++) { const v = max * k / 4, y = Y(v);
+    sv('line', {x1: m.l, x2: W - m.r, y1: y, y2: y, class: 'gl'}, svg);
+    sv('text', {x: m.l - 8, y: y + 4, 'text-anchor': 'end', class: 'ax'}, svg).textContent = eixo(v); }
+  const ultimo = itens.length - 1;
+  itens.forEach((p, i) => {
+    const cx = m.l + banda * i + banda / 2, x = cx - bw / 2, yb = Y(0), yt = Y(p.v), r = Math.min(4, (yb - yt) / 2, bw / 2);
+    if (p.v > 0) sv('path', {d: `M${x},${yb}L${x},${yt + r}Q${x},${yt} ${x + r},${yt}L${x + bw - r},${yt}Q${x + bw},${yt} ${x + bw},${yt + r}L${x + bw},${yb}Z`,
+      fill: 'var(--s1)', opacity: i === ultimo ? .55 : 1}, svg);
+    sv('text', {x: cx, y: H - 8, 'text-anchor': 'middle', class: 'ax'}, svg).textContent = p.rot;
+    const hit = sv('rect', {x: m.l + banda * i, y: m.t, width: banda, height: ih, fill: 'transparent'}, svg);
+    hit.addEventListener('pointermove', e => dica(e, ton(p.v), p.longo + (i === ultimo ? ' (mês em andamento)' : ''), `${p.n} pesagens`));
+    hit.addEventListener('pointerleave', semDica);
+  });
+}
+
+// barras horizontais (HTML)
+function grafBarras(el, itens, cor, sub) {
+  const max = Math.max(1, ...itens.map(a => a.v));
+  el.innerHTML = itens.length ? itens.map((a, i) => `<div class="hb" data-i="${i}"><div class="l" title="${esc(a.nome)}">${esc(a.nome)}</div>
+    <div class="t"><div class="bf" style="width:${a.v / max * 100}%;background:${cor}"></div></div><div class="n">${ton(a.v)}</div></div>`).join('')
+    : '<div class="vazio">Sem pesagens no período.</div>';
+  el.querySelectorAll('.hb').forEach(r => {
+    const a = itens[r.dataset.i];
+    r.onpointermove = e => dica(e, kg(a.v), a.nome, sub(a)); r.onpointerleave = semDica;
+  });
+}
+
+// mapa de calor dia da semana x hora
+function grafCalor(el, mat) {
+  const max = Math.max(1, ...mat.flat()), cores = ['var(--h1)', 'var(--h2)', 'var(--h3)', 'var(--h4)'];
+  const cor = v => v ? cores[Math.min(3, Math.ceil(v / max * 4) - 1)] : 'var(--heat0)';
+  let h = '<div></div>' + Array.from({length: 24}, (_, i) => `<div style="text-align:center">${i % 3 === 0 ? i + 'h' : ''}</div>`).join('');
+  mat.forEach((linha, d) => { h += `<div class="rl">${SEMANA[d]}</div>` + linha.map((v, hr) => `<div class="c" data-d="${d}" data-h="${hr}" style="background:${cor(v)}"></div>`).join(''); });
+  el.innerHTML = `<div class="heat-wrap"><div class="heat">${h}</div></div><div class="heat-leg">menos <i style="background:var(--heat0)"></i>${cores.map(c => `<i style="background:${c}"></i>`).join('')} mais</div>`;
+  el.querySelectorAll('.c').forEach(c => {
+    const d = +c.dataset.d, hr = +c.dataset.h, v = mat[d][hr];
+    c.onpointermove = e => dica(e, `${v} pesage${v === 1 ? 'm' : 'ns'}`, `${SEMANA[d]} · ${hr}h às ${hr + 1}h`); c.onpointerleave = semDica;
+  });
+}
+
+function deltaTxt(at, ant) {
+  if (!ant) return '<span class="muted">sem período anterior</span>';
+  const p = (at - ant) / ant * 100, up = p >= 0;
+  return `<span class="delta ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${fmt(Math.abs(p).toFixed(1))}%</span> vs. período anterior`;
+}
+function sparkline(pts) {
+  if (pts.length < 2) return '';
+  const max = Math.max(1, ...pts), W = 200, H = 34;
+  const d = pts.map((v, i) => `${i ? 'L' : 'M'}${(i * W / (pts.length - 1)).toFixed(1)},${(H - 2 - v / max * (H - 6)).toFixed(1)}`).join('');
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${d}L${W},${H}L0,${H}Z" fill="rgba(57,135,229,.14)"/><path d="${d}" fill="none" stroke="rgba(57,135,229,.7)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+async function carregarDashboard() {
+  try { DASH = await api('dashboard?dias=' + dashDias); } catch (e) { return toast(e.message, 'err'); }
+  desenharDashboard();
+  $('#dashAtual').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+  clearTimeout(dashTimer);
+  dashTimer = setTimeout(() => { if ($('#tab-dashboard').classList.contains('on')) carregarDashboard(); }, 60000);
+}
+function desenharDashboard() {
+  const D = DASH; if (!D) return;
+  const P = D.periodo, A = D.anterior, C = D.cadastros, nomePer = {7: '7 dias', 30: '30 dias', 90: '90 dias', 365: '12 meses'}[D.dias] || D.dias + ' dias';
+  const serie = D.por_dia.map(x => x.liquido);
+  $('#dashTiles').innerHTML = [
+    ['⚖️ Peso líquido · ' + nomePer, ton(P.liquido), deltaTxt(P.liquido, A.liquido), sparkline(serie)],
+    ['🎫 Pesagens · ' + nomePer, fmt(P.pesagens), deltaTxt(P.pesagens, A.pesagens), sparkline(D.por_dia.map(x => x.pesagens))],
+    ['📏 Média por pesagem', kg(P.media), `${fmt(P.caminhoes)} caminhões · ${fmt(P.empresas)} empresas`, ''],
+    ['📅 Hoje', `${fmt(D.hoje.pesagens)}<small>${plural(D.hoje.pesagens, 'pesagem', 'pesagens')}</small>`, kg(D.hoje.liquido), ''],
+    ['🗓️ Este mês', ton(D.mes.liquido), `${fmt(D.mes.pesagens)} ${plural(D.mes.pesagens, 'pesagem', 'pesagens')}`, ''],
+    ['⏳ No pátio agora', `${D.abertos.length}<small>${plural(D.abertos.length, 'caminhão', 'caminhões')}</small>`, D.abertos.length ? 'aguardando 2ª pesagem' : 'nenhum aguardando', ''],
+    ['👥 Motoristas / caminhões', fmt(C.total), `${fmt(C.empresas_cadastradas || 0)} empresas cadastradas · ${C.empresas_frota} frotas`, ''],
+    ['📚 Desde o início', ton(D.historico.liquido), `${fmt(D.historico.pesagens)} pesagens desde ${dataBR(D.historico.desde).slice(0, 10)}`, ''],
+  ].map(([k, v, d, sp]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div>${sp}</div>`).join('');
+
+  const dias = D.por_dia.map(x => { const [a, m, d] = x.dia.split('-');
+    return {v: x.liquido, n: x.pesagens, rot: D.dias > 92 ? `${MESES[m - 1]}/${a.slice(2)}` : `${d}/${m}`,
+      longo: new Date(+a, m - 1, +d).toLocaleDateString('pt-BR', {weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric'})}; });
+  $('#chDiaSub').textContent = `${dataBR(D.inicio).slice(0, 10)} a ${dataBR(D.fim).slice(0, 10)} · média de ${kg(P.liquido / D.dias)} por dia`;
+  grafLinha($('#chDia'), dias);
+  tabelaVis('chDia', ['Dia', 'Pesagens', 'Líquido (kg)'], D.por_dia.slice().reverse().map(x => [dataBR(x.dia).slice(0, 10), x.pesagens, fmt(x.liquido)]));
+
+  const meses = D.por_mes.map(x => { const [a, m] = x.mes.split('-'); return {v: x.liquido, n: x.pesagens, rot: MESES[m - 1], longo: `${MESES[m - 1]}/${a}`}; });
+  grafColunas($('#chMes'), meses);
+  tabelaVis('chMes', ['Mês', 'Pesagens', 'Toneladas'], D.por_mes.slice().reverse().map(x => { const [a, m] = x.mes.split('-'); return [`${MESES[m - 1]}/${a}`, x.pesagens, ton(x.liquido)]; }));
+
+  grafCalor($('#chCalor'), D.calor);
+  grafBarras($('#chEmp'), D.top_empresas.map(a => ({...a, v: a.liquido})), 'var(--s1)', a => `${a.pesagens} pesagens`);
+  grafBarras($('#chItem'), D.top_itens.map(a => ({...a, v: a.liquido})), 'var(--s2)', a => `${a.pesagens} pesagens`);
+  grafBarras($('#chCam'), D.top_caminhoes.map(a => ({...a, nome: `${a.placa} · ${a.empresa}`, v: a.liquido})), 'var(--s3)', a => `${a.pesagens} pesagens`);
+
+  $('#dashUlt').innerHTML = D.ultimas.map(x => `<tr><td>${dataBR(x.data)}</td><td><b>${esc(x.placa)}</b></td><td>${esc(x.empresa)}</td><td class="num"><b>${fmt(x.liquido)}</b></td></tr>`).join('')
+    || '<tr><td colspan="4" class="vazio">Sem pesagens.</td></tr>';
+
+  $('#dashPatio').innerHTML = D.abertos.length ? D.abertos.map(t => `<div class="patio-item" data-id="${t.id}"><span class="pill">Nº ${t.id}</span><b>${esc(t.placa)}</b>
+      <span style="flex:1" class="muted">${esc(t.motorista || '')}</span><span>${kg(t.peso_inicial)}</span><span class="muted">${dataBR(t.data_inicial).slice(11)}</span></div>`).join('')
+    : '<div class="vazio" style="padding:14px">✅ Nenhum caminhão aguardando a 2ª pesagem.</div>';
+  $$('#dashPatio .patio-item').forEach(el => el.onclick = () => carregarTicketNoForm(el.dataset.id));
+
+  const q = (n, titulo, lista, busca) => `<div class="qual"><div class="n" style="color:${n ? '#ffd277' : '#7be07b'}">${n}</div>
+    <div class="tx">${n ? '⚠️' : '✅'} ${titulo}<small>${esc(lista)}</small></div>${n && busca ? `<button class="btn sm" data-busca="${esc(busca)}">Ver</button>` : ''}</div>`;
+  $('#dashQual').innerHTML =
+    q(C.sem_tara.length, 'cadastros sem TARA', C.sem_tara.map(c => c.nome).join(', '), C.sem_tara[0]?.nome) +
+    q(C.placas_duplicadas.length, 'placas cadastradas mais de uma vez', C.placas_duplicadas.map(d => `${d.placa} (${d.nomes.length}x)`).join(', '), C.placas_duplicadas[0]?.placa) +
+    q(C.sem_tag.length, 'cadastros sem número de tag/cartão', C.sem_tag.map(c => c.nome).join(', '), C.sem_tag[0]?.nome);
+  $$('#dashQual [data-busca]').forEach(b => b.onclick = () => { $('#buscaCad').value = b.dataset.busca; irPara('cadastros'); });
+
+  desenharSistema();
+}
+function desenharSistema() {
+  const D = DASH; if (!D) return;
+  const b = ESTADO.peso, bk = D.backup;
+  const linha = (ic, tit, sub, cls, rot) => `<div class="st-row"><span class="ic">${ic}</span><div class="tx">${tit}<small>${esc(sub)}</small></div><span class="stb ${cls}">${rot}</span></div>`;
+  const tagCls = $('#dotTag').classList.contains('ok') ? ['ok', '● Conectado'] : $('#dotTag').classList.contains('err') ? ['er', '✕ Erro'] : ['av', '○ Desligado'];
+  const bkOk = bk.ultimo && !bk.erro && bk.horas_desde_ultimo < (CFG.backup?.intervalo_horas || 6) * 2;
+  $('#dashSistema').innerHTML =
+    linha('⚖️', 'Balança', b?.ok ? `${fmt(b.peso)} kg · ${b.estavel ? 'estável' : 'instável'}` : (b?.mensagem || 'sem leitura'), b?.ok ? 'ok' : 'er', b?.ok ? '● Online' : '✕ Sem sinal') +
+    linha('📡', 'Leitura de tags (InControl)', CFG.incontrol?.ativo ? 'leitura automática ligada' : 'identificação manual', tagCls[0], tagCls[1]) +
+    linha('💾', 'Backup do banco', bk.ultimo ? `último ${dataBR(bk.ultimo.quando)} · ${bk.quantidade} arquivos` : 'nenhum backup ainda',
+      bk.erro ? 'er' : bkOk ? 'ok' : 'av', bk.erro ? '✕ Erro' : bkOk ? '● Em dia' : '! Atrasado') +
+    linha('🏢', 'Maior frota', C_maior(D), 'ok', `${D.cadastros.empresas_frota} frotas`) +
+    linha('🗄️', 'Banco de dados', CFG.banco_absoluto || '', 'ok', '● OK');
+}
+const C_maior = D => D.cadastros.maior_frota ? `${D.cadastros.maior_frota[0]} · ${D.cadastros.maior_frota[1]} caminhões` : '—';
+$$('#dashPer button').forEach(b => b.onclick = () => {
+  $$('#dashPer button').forEach(x => x.classList.toggle('on', x === b)); dashDias = +b.dataset.d; carregarDashboard();
+});
+$('#dashRefresh').onclick = carregarDashboard;
+let tmDash; addEventListener('resize', () => { clearTimeout(tmDash); tmDash = setTimeout(() => { if ($('#tab-dashboard').classList.contains('on')) desenharDashboard(); }, 200); });
+setInterval(() => { if ($('#tab-dashboard').classList.contains('on')) desenharSistema(); }, 3000);
+
+// ---------- relatórios ----------
+let REL = null;
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function periodo(p) {
+  const h = new Date(), d = n => new Date(h.getFullYear(), h.getMonth(), h.getDate() - n);
+  const r = {hoje: [d(0), d(0)], ontem: [d(1), d(1)], 7: [d(6), d(0)], 30: [d(29), d(0)],
+    mes: [new Date(h.getFullYear(), h.getMonth(), 1), d(0)],
+    mesant: [new Date(h.getFullYear(), h.getMonth() - 1, 1), new Date(h.getFullYear(), h.getMonth(), 0)]}[p];
+  $('#relIni').value = iso(r[0]); $('#relFim').value = iso(r[1]); gerarRelatorio();
+}
+$$('.periodos [data-per]').forEach(b => b.onclick = () => periodo(b.dataset.per));
+async function abrirRelatorios() {
+  if (!$('#relIni').value) { $('#relIni').value = iso(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); $('#relFim').value = iso(new Date()); }
+  const emps = await api('empresas');
+  $('#relEmpresas').innerHTML = emps.map(e => `<option value="${esc(e.empresa)}">`).join('');
+  gerarRelatorio();
+}
+const relParams = () => new URLSearchParams({inicio: $('#relIni').value, fim: $('#relFim').value, empresa: $('#relEmp').value.trim(),
+  motorista: $('#relMot').value.trim(), pagador: $('#relPag').value.trim(), q: $('#relQ').value.trim()}).toString();
+let relGrupo = 'empresa';
+$$('#relGrp button').forEach(b => b.onclick = e => { e.stopPropagation();
+  $$('#relGrp button').forEach(x => x.classList.toggle('on', x === b)); relGrupo = b.dataset.g; desenharGrupoRel(); });
+function desenharGrupoRel() {
+  if (!REL) return;
+  const lista = REL['por_' + relGrupo] || [], max = Math.max(1, ...lista.map(a => a.liquido));
+  $('#relGrpCol').textContent = {empresa: 'Empresa', motorista: 'Motorista', pagador: 'Quem paga'}[relGrupo];
+  $('#tbRelEmp').innerHTML = lista.map(a => `<tr data-emp="${esc(a.chave)}"><td><b>${esc(a.chave)}</b></td><td class="num">${a.pesagens}</td><td class="num">${a.caminhoes}</td>
+    <td class="num"><b>${fmt(a.liquido)}</b></td><td><div class="barra" style="width:${a.liquido / max * 100}%"></div></td></tr>`).join('') || '<tr><td colspan="5" class="vazio">Sem pesagens.</td></tr>';
+}
+async function gerarRelatorio() {
+  if ($('#relIni').value > $('#relFim').value) return toast('A data inicial é maior que a final.', 'err');
+  try { REL = await api('relatorio?' + relParams()); } catch (e) { return toast(e.message, 'err'); }
+  const t = REL.totais;
+  $('#relKpis').innerHTML = [['Pesagens', t.pesagens], ['Peso líquido total', fmt(t.liquido) + ' kg'], ['Média por pesagem', fmt(Math.round(t.media)) + ' kg'],
+    ['Caminhões', t.caminhoes], ['Empresas', t.empresas]].map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  const maxD = Math.max(1, ...REL.por_dia.map(a => a.liquido));
+  desenharGrupoRel();
+  $('#tbRelDia').innerHTML = REL.por_dia.map(a => `<tr><td>${dataBR(a.chave).slice(0, 10)}</td><td class="num">${a.pesagens}</td>
+    <td class="num"><b>${fmt(a.liquido)}</b></td><td><div class="barra" style="width:${a.liquido / maxD * 100}%;background:var(--blue)"></div></td></tr>`).join('') || '<tr><td colspan="4" class="vazio">Sem pesagens.</td></tr>';
+  $('#relN').textContent = REL.linhas.length;
+  $('#tbRel').innerHTML = REL.linhas.map(x => `<tr><td>${esc(x.numero)}</td><td>${dataBR(x.data)}</td><td><b>${esc(x.placa)}</b></td><td>${esc(x.empresa)}</td>
+    <td>${esc(x.motorista)}</td><td>${x.pagador_tipo === 'EMPRESA' ? '🏢' : '👤'} ${esc(x.pagador)}</td><td>${esc(x.item)}</td><td class="num">${fmt(x.tara)}</td><td class="num">${fmt(x.bruto)}</td>
+    <td class="num"><b>${fmt(x.liquido)}</b></td><td class="muted">${x.origem === 'novo' ? 'sistema novo' : 'sistema antigo'}</td></tr>`).join('')
+    || '<tr><td colspan="11" class="vazio">Nenhuma pesagem no período.</td></tr>';
+}
+$('#tbRelEmp').onclick = e => { const tr = e.target.closest('tr[data-emp]'); if (!tr) return;
+  $({empresa: '#relEmp', motorista: '#relMot', pagador: '#relPag'}[relGrupo]).value = tr.dataset.emp; gerarRelatorio(); };
+$('#relGerar').onclick = gerarRelatorio;
+$('#relLimpar').onclick = () => { ['#relEmp', '#relMot', '#relPag', '#relQ'].forEach(i => $(i).value = ''); gerarRelatorio(); };
+[$('#relMot'), $('#relPag')].forEach(el => el.onkeydown = e => { if (e.key === 'Enter') gerarRelatorio(); });
+$('#relEmp').onchange = gerarRelatorio;
+[$('#relIni'), $('#relFim')].forEach(el => el.onchange = gerarRelatorio);
+$('#relQ').onkeydown = e => { if (e.key === 'Enter') gerarRelatorio(); };
+$('#relCsv').onclick = () => { location.href = '/api/relatorio.csv?' + relParams(); };
+$('#relImp').onclick = () => {
+  if (!REL) return;
+  const t = REL.totais, per = `${dataBR(REL.inicio).slice(0, 10)} a ${dataBR(REL.fim).slice(0, 10)}`;
+  const linhaTab = (cab, linhas, rodape) => `<table><thead><tr>${cab.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody>${rodape ? `<tfoot>${rodape}</tfoot>` : ''}</table>`;
+  $('#print-area').innerHTML = `<div class="relp">
+    <h1>${esc(CFG.empresa)} — Relatório de pesagens</h1>
+    <div class="sub">Período: <b>${per}</b>${REL.empresa ? ` · Empresa: <b>${esc(REL.empresa)}</b>` : ''}${REL.motorista ? ` · Motorista: <b>${esc(REL.motorista)}</b>` : ''}${REL.pagador ? ` · Quem paga: <b>${esc(REL.pagador)}</b>` : ''}${REL.q ? ` · Filtro: <b>${esc(REL.q)}</b>` : ''} · Emitido em ${new Date().toLocaleString('pt-BR')}</div>
+    <div class="kp"><span>Pesagens: <b>${t.pesagens}</b></span><span>Líquido total: <b>${fmt(t.liquido)} kg</b></span>
+      <span>Média: <b>${fmt(Math.round(t.media))} kg</b></span><span>Caminhões: <b>${t.caminhoes}</b></span></div>
+    ${REL.por_empresa.length > 1 ? linhaTab(['Empresa', 'Pesagens', 'Caminhões', 'Líquido (kg)'],
+      REL.por_empresa.map(a => `<tr><td>${esc(a.chave)}</td><td class="n">${a.pesagens}</td><td class="n">${a.caminhoes}</td><td class="n">${fmt(a.liquido)}</td></tr>`).join('')) : ''}
+    ${linhaTab(['Nº', 'Data', 'Placa', 'Empresa', 'Motorista', 'Quem paga', 'Item', 'TARA', 'Bruto', 'Líquido'],
+      REL.linhas.map(x => `<tr><td>${esc(x.numero)}</td><td>${dataBR(x.data)}</td><td>${esc(x.placa)}</td><td>${esc(x.empresa)}</td><td>${esc(x.motorista)}</td>
+        <td>${esc(x.pagador)}</td><td>${esc(x.item)}</td><td class="n">${fmt(x.tara)}</td><td class="n">${fmt(x.bruto)}</td><td class="n">${fmt(x.liquido)}</td></tr>`).join(''),
+      `<tr><td colspan="9">TOTAL (${t.pesagens} pesagens)</td><td class="n">${fmt(t.liquido)}</td></tr>`)}
+  </div>`;
+  setTimeout(() => window.print(), 150);
+};
+
+// ---------- cadastros ----------
+async function carregarCad() {
+  const l = await api('clientes?limite=500&q=' + encodeURIComponent($('#buscaCad').value) + ($('#cadOcultos').checked ? '&ocultos=1' : ''));
+  window._cad = l; $('#nCad').textContent = l.length + ' registros';
+  $('#itens').innerHTML = [...new Set(l.map(c => (c.tipo_carga || '').toUpperCase()).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join('');
+  $('#tbCad').innerHTML = l.map((c, i) => `<tr data-i="${i}" title="Clique para editar" class="${c.inativo ? 'oculto' : ''}">
+    <td class="acoes-cad">${c.inativo ? `<button class="btn sm b" data-acao="reativar">↩ Reativar</button> <span class="muted">oculto (unificado no #${c.unificado_em || '?'})</span>`
+      : `<button class="btn sm b" data-acao="editar">✏️ Editar</button>
+        <button class="btn sm" data-acao="pesar">⚖ Pesar</button>
+        <button class="btn sm d" data-acao="excluir" title="Excluir">🗑️</button>`}</td>
+    <td class="nome"><b>${esc(c.motorista)}</b>${normTxt(c.motorista) !== normTxt(c.nome) ? `<br><small class="muted">${esc(c.nome)}</small>` : ''}</td>
+    <td>${c.empresa_vinculada ? `<span class="emp-badge sm">🏢 ${esc(c.empresa_vinculada)}</span>` : `<span class="muted" title="Agrupamento automático pelo nome">${esc(c.empresa)}</span>`}${c.caminhoes_empresa > 1 ? ` <span class="pill">${c.caminhoes_empresa}</span>` : ''}</td>
+    <td>${c.pagador === 'EMPRESA' ? '🏢 Empresa' : '👤 Motorista'}</td>
+    <td><b>${esc(c.placa)}</b></td><td>${esc(c.user_id)}</td><td>${esc(c.card_no)}</td>
+    <td>${esc(c.modelo)}</td><td class="num">${fmt(c.tara)}</td><td>${esc(c.descricao_carga || c.tipo_carga)}</td></tr>`).join('')
+    || '<tr><td colspan="10" class="vazio">Nenhum cadastro encontrado.</td></tr>';
+}
+// clicar na linha (ou em Editar) abre a edição
+$('#tbCad').onclick = e => {
+  const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+  const i = +tr.dataset.i, acao = e.target.closest('[data-acao]')?.dataset.acao || 'editar';
+  if (acao === 'reativar') return reativarCad(window._cad[i]);
+  if (window._cad[i].inativo) return;
+  if (acao === 'pesar') pesarCliente(i);
+  else if (acao === 'excluir') excluirCad(window._cad[i]);
+  else abrirCad(window._cad[i]);
+};
+function pesarCliente(i) { limpar(); selecionarCliente(window._cad[i]); irPara('pesagem'); }
+let tmc; $('#buscaCad').oninput = () => { clearTimeout(tmc); tmc = setTimeout(carregarCad, 250); };
+const CAMPOS_CAD = ['empresa_id', 'pagador', 'motorista_nome', 'plano_id', 'nome', 'placa', 'user_id', 'card_no', 'card_name', 'modelo', 'peso_maximo', 'ano_fabricacao', 'tipo_carga', 'descricao_carga', 'cnpj', 'telefone', 'email'];
+let cadAtual = null;
+function abrirCad(c = {}) {
+  cadAtual = c.id ? c : null;
+  $('#mcTitulo').textContent = cadAtual ? `Editar cadastro #${c.id}` : 'Novo cadastro';
+  $('#mc_empresa_id').innerHTML = opcoesEmpresas(c.empresa_id);
+  $('#mc_plano_id').innerHTML = opcoesPlanos(c.plano_id, 'Padrão');
+  CAMPOS_CAD.forEach(k => $('#mc_' + k).value = c[k] ?? '');
+  $('#mc_pagador').value = c.pagador || (c.empresa_id ? 'EMPRESA' : 'MOTORISTA');
+  $('#mc_motorista_nome').placeholder = c.motorista || 'Nome que aparece no ticket';
+  infoCadCobranca();
+  $('#mcExcluir').hidden = !cadAtual; $('#modalCad').classList.add('on'); $('#mc_nome').focus();
+}
+$('#novoCad').onclick = () => abrirCad();
+$('#mcFechar').onclick = () => $('#modalCad').classList.remove('on');
+$('#mcSalvar').onclick = async () => {
+  const d = {}; CAMPOS_CAD.forEach(k => d[k] = $('#mc_' + k).value.trim());
+  d.peso_maximo = numero(d.peso_maximo) ?? 0;
+  if (!d.empresa_id) d.pagador = 'MOTORISTA';
+  if (!d.nome || !d.placa) return toast('Nome e placa são obrigatórios.', 'err');
+  if (!d.user_id) d.user_id = d.nome;
+  try {
+    const c = cadAtual ? await api('clientes/' + cadAtual.id, {method: 'PUT', body: d}) : await api('clientes', {method: 'POST', body: d});
+    toast('Cadastro salvo.', 'ok'); $('#modalCad').classList.remove('on'); carregarEmpresas();
+    if ($('#tab-cadastros').classList.contains('on')) carregarCad(); else selecionarCliente(c);
+    atualizarResumo();
+  } catch (e) { toast(e.message, 'err'); }
+};
+$('#mcExcluir').onclick = () => excluirCad(cadAtual);
+async function excluirCad(c) {
+  if (!c || !await confirmar(`Excluir o cadastro de ${c.nome} (placa ${c.placa})? Os tickets já feitos não são apagados.`)) return;
+  try {
+    await api('clientes/' + c.id, {method: 'DELETE'}); toast('Cadastro excluído.', 'warn');
+    $('#modalCad').classList.remove('on');
+    if (ESTADO.cliente && ESTADO.cliente.id === c.id) { ESTADO.cliente = null; $('#cliBox').classList.remove('on'); $('#taraCad').disabled = true; }
+    carregarCad(); carregarEmpresas(); atualizarResumo();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// ---------- empresas e tabela de valores (listas usadas em vários lugares) ----------
+const normTxt = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+async function carregarRefs() {
+  try { [EMPRESAS, PLANOS] = await Promise.all([api('empresas-cad'), api('planos')]); } catch (e) { return; }
+  const atual = $('#tkEmpresa').value;
+  $('#tkEmpresa').innerHTML = opcoesEmpresas(atual);
+  $('#tkEmpresa').value = atual;
+  $('#dlEmpresas').innerHTML = EMPRESAS.filter(e => e.ativa).map(e => `<option value="${esc(e.nome)}">`).join('');
+  setPagador(ESTADO.pagador);
+}
+function opcoesEmpresas(sel) {
+  return '<option value="">— Sem empresa (autônomo) —</option>' + EMPRESAS.filter(e => e.ativa || e.id == sel)
+    .map(e => `<option value="${e.id}" ${e.id == sel ? 'selected' : ''}>${esc(e.nome)}${e.ativa ? '' : ' (inativa)'}</option>`).join('');
+}
+function opcoesPlanos(sel, vazio) {
+  const pad = PLANOS.find(p => p.padrao && p.ativo);
+  return `<option value="">${vazio}${pad ? ': ' + esc(pad.nome) : ' (nenhuma)'}</option>` + PLANOS.filter(p => p.ativo || p.id == sel)
+    .map(p => `<option value="${p.id}" ${p.id == sel ? 'selected' : ''}>${esc(p.nome)} · ${esc(p.tipo_nome)} ${brl(p.valor)}</option>`).join('');
+}
+function descPlano(p, liq) {
+  if (!p) return '<span style="color:var(--warn)">Sem tabela de valor — digite o valor ou cadastre em "Valores"</span>';
+  if (p.tipo === 'PESAGEM') return `${esc(p.nome)}: <b>${brl(p.valor)}</b> por pesagem`;
+  if (p.tipo === 'TONELADA') return `${esc(p.nome)}: ${brl(p.valor)} por tonelada${liq ? ` → <b>${brl(liq / 1000 * p.valor)}</b>` : ''}`;
+  return `${esc(p.nome)}: pacote mensal ${brl(p.valor)} ${p.franquia ? `(${p.franquia} pesagens/mês; excedente ${brl(p.valor_excedente)})` : '(pesagens ilimitadas)'}`;
+}
+
+// ---------- pesagem: empresa e quem paga ----------
+const nomeEmpresaSel = () => (EMPRESAS.find(x => x.id == $('#tkEmpresa').value) || {}).nome || '';
+const pagadorNome = () => ESTADO.pagador === 'EMPRESA' ? nomeEmpresaSel()
+  : (ESTADO.cliente?.titular || $('#motorista').value.trim() || $('#placa').value.trim());
+function setPagador(p) {
+  const temEmp = !!$('#tkEmpresa').value;
+  ESTADO.pagador = temEmp && p === 'EMPRESA' ? 'EMPRESA' : 'MOTORISTA';
+  $$('#tkPagador button').forEach(b => { b.classList.toggle('on', b.dataset.p === ESTADO.pagador); if (b.dataset.p === 'EMPRESA') b.disabled = !temEmp; });
+  infoCobranca();
+}
+function infoCobranca() {
+  const emp = nomeEmpresaSel(), mot = $('#motorista').value.trim() || '—';
+  $('#tkEmpAlt').hidden = !ESTADO.cliente || String(ESTADO.cliente.empresa_id || '') === $('#tkEmpresa').value;
+  $('#tkCobInfo').innerHTML = ESTADO.pagador === 'EMPRESA'
+    ? `💲 Cobrança para a empresa <b>${esc(emp)}</b> · motorista <b>${esc(mot)}</b> prestando serviço`
+    : `💲 Cobrança para <b>${esc(pagadorNome() || '—')}</b> (o próprio motorista / dono do caminhão)${emp ? ` · carga da empresa ${esc(emp)}` : ''}`;
+  mostrarValorTabela();
+}
+function planoAtual() {
+  if (ESTADO.pagador === 'EMPRESA') { const e = EMPRESAS.find(x => x.id == $('#tkEmpresa').value); if (e?.plano?.ativo) return e.plano; }
+  else if (ESTADO.cliente?.plano_id) { const p = PLANOS.find(x => x.id === ESTADO.cliente.plano_id && x.ativo); if (p) return p; }
+  return PLANOS.find(p => p.padrao && p.ativo) || null;
+}
+function mostrarValorTabela(liq) {
+  if (liq === undefined) { const pi = numero($('#pesoInicial').value), pf = numero($('#pesoFinal').value); liq = pi !== null && pf !== null ? Math.abs(pf - pi) : null; }
+  const manual = numero($('#valorManual').value);
+  $('#valorTabela').innerHTML = manual !== null ? `Valor manual: <b>${brl(manual)}</b> (a tabela não vale nesta pesagem)` : descPlano(planoAtual(), liq);
+}
+$('#tkEmpresa').onchange = () => setPagador($('#tkEmpresa').value ? 'EMPRESA' : 'MOTORISTA');
+$('#tkPagador').onclick = e => { const b = e.target.closest('button'); if (b && !b.disabled) setPagador(b.dataset.p); };
+$('#motorista').addEventListener('input', infoCobranca);
+$('#valorManual').oninput = () => mostrarValorTabela();
+$('#tkNovaEmp').onclick = () => abrirEmpresa({}, e => { $('#tkEmpresa').value = e.id; setPagador('EMPRESA'); });
+
+// ---------- cadastro do motorista: empresa vinculada ----------
+function infoCadCobranca() {
+  const temEmp = !!$('#mc_empresa_id').value;
+  $('#mc_pagador').querySelector('[value="EMPRESA"]').disabled = !temEmp;
+  if (!temEmp) $('#mc_pagador').value = 'MOTORISTA';
+  const emp = (EMPRESAS.find(e => e.id == $('#mc_empresa_id').value) || {}).nome;
+  $('#mcCobInfo').innerHTML = !temEmp ? 'Sem empresa: as pesagens são cobradas do próprio motorista / dono do caminhão.'
+    : $('#mc_pagador').value === 'EMPRESA' ? `Motorista presta serviço para <b>${esc(emp)}</b>: as pesagens são cobradas da empresa.`
+    : `Trabalha para <b>${esc(emp)}</b>, mas paga as pesagens por conta própria.`;
+  $('#mc_plano_id').disabled = $('#mc_pagador').value === 'EMPRESA';
+}
+$('#mc_empresa_id').onchange = () => { $('#mc_pagador').value = $('#mc_empresa_id').value ? 'EMPRESA' : 'MOTORISTA'; infoCadCobranca(); };
+$('#mc_pagador').onchange = infoCadCobranca;
+$('#mcNovaEmp').onclick = () => abrirEmpresa({nome: ''}, e => { $('#mc_empresa_id').innerHTML = opcoesEmpresas(e.id); $('#mc_pagador').value = 'EMPRESA'; infoCadCobranca(); });
+$('#cadOcultos').onchange = carregarCad;
+async function reativarCad(c) {
+  if (!await confirmar(`Reativar o cadastro ${c.nome} (${c.placa})? Ele volta a aparecer na pesagem.`)) return;
+  try { await api(`clientes/${c.id}/reativar`, {method: 'POST'}); toast('Cadastro reativado.', 'ok'); carregarCad(); } catch (e) { toast(e.message, 'err'); }
+}
+
+// ---------- aba Empresas ----------
+let empAtual = null, empCallback = null;
+async function carregarEmpresasTab() {
+  await carregarRefs();
+  const q = normTxt($('#buscaEmp').value);
+  const l = EMPRESAS.filter(e => !q || normTxt(e.nome).includes(q) || normTxt(e.documento).includes(q)
+    || e.motoristas.some(m => normTxt(m.nome).includes(q) || normTxt(m.placa).includes(q)));
+  $('#nEmp').textContent = l.length + ' empresas';
+  $('#tbEmp').innerHTML = l.map(e => `<tr data-id="${e.id}" style="cursor:pointer" class="${e.ativa ? '' : 'oculto'}">
+    <td><button class="btn sm b">✏️ Editar</button></td>
+    <td><span class="emp-badge sm">🏢 ${esc(e.nome)}</span></td><td>${esc(e.documento)}</td><td>${esc(e.telefone)}</td>
+    <td>${e.plano ? esc(e.plano.nome) + ` <span class="muted">${esc(e.plano.tipo_nome)}</span>` : '<span class="muted">padrão</span>'}</td>
+    <td style="white-space:normal;max-width:380px">${e.motoristas.length ? `<b>${e.motoristas.length}</b> · ` + e.motoristas.slice(0, 6).map(m => `${esc(m.motorista)} <span class="muted">${esc(m.placa)}</span>`).join(', ') + (e.motoristas.length > 6 ? '…' : '') : '<span class="muted">nenhum</span>'}</td>
+    <td>${e.ativa ? '<span class="stf ok">Ativa</span>' : '<span class="stf pend">Inativa</span>'}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="vazio">Nenhuma empresa cadastrada. Clique em "+ Nova empresa" ou use "Organizar cadastros antigos" abaixo.</td></tr>';
+  carregarMig();
+}
+$('#tbEmp').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) abrirEmpresa(EMPRESAS.find(x => x.id == tr.dataset.id)); };
+let tme; $('#buscaEmp').oninput = () => { clearTimeout(tme); tme = setTimeout(carregarEmpresasTab, 250); };
+$('#novaEmp').onclick = () => abrirEmpresa({});
+const CAMPOS_EMP = ['nome', 'documento', 'telefone', 'email', 'contato', 'endereco', 'observacao', 'plano_id'];
+function abrirEmpresa(e = {}, cb = null) {
+  empAtual = e.id ? e : null; empCallback = cb;
+  $('#meTitulo').textContent = empAtual ? `Empresa nº ${e.id}` : 'Nova empresa';
+  $('#me_plano_id').innerHTML = opcoesPlanos(e.plano_id, 'Padrão');
+  CAMPOS_EMP.forEach(k => $('#me_' + k).value = e[k] ?? '');
+  $('#me_ativa').checked = e.ativa !== 0;
+  $('#meMotoristas').innerHTML = empAtual && e.motoristas.length ? `<label>Motoristas vinculados (${e.motoristas.length})</label>
+    <div style="max-height:150px;overflow:auto;margin-bottom:12px">${e.motoristas.map(m => `<span class="pill" style="margin-bottom:4px">${esc(m.motorista)} · ${esc(m.placa)}${m.pagador === 'MOTORISTA' ? ' · paga sozinho' : ''}</span>`).join(' ')}</div>` : '';
+  $('#meExcluir').hidden = !empAtual;
+  $('#modalEmp').classList.add('on'); $('#me_nome').focus();
+}
+$('#meFechar').onclick = () => $('#modalEmp').classList.remove('on');
+$('#meSalvar').onclick = async () => {
+  const d = {}; CAMPOS_EMP.forEach(k => d[k] = $('#me_' + k).value.trim()); d.ativa = $('#me_ativa').checked;
+  if (!d.nome) return toast('Informe o nome da empresa.', 'err');
+  try {
+    const e = empAtual ? await api('empresas-cad/' + empAtual.id, {method: 'PUT', body: d}) : await api('empresas-cad', {method: 'POST', body: d});
+    $('#modalEmp').classList.remove('on'); toast(`Empresa <b>${esc(e.nome)}</b> salva.`, 'ok');
+    await carregarRefs(); carregarEmpresas();
+    if (empCallback) empCallback(e);
+    if ($('#tab-empresas').classList.contains('on')) carregarEmpresasTab();
+  } catch (e) { toast(e.message, 'err'); }
+};
+$('#meExcluir').onclick = async () => {
+  if (!empAtual || !await confirmar(`Excluir a empresa ${empAtual.nome}? Os motoristas vinculados ficam sem empresa.`)) return;
+  try { await api('empresas-cad/' + empAtual.id, {method: 'DELETE'}); $('#modalEmp').classList.remove('on'); toast('Empresa excluída.', 'warn'); carregarEmpresasTab(); carregarEmpresas(); }
+  catch (e) { toast(e.message, 'err'); }
+};
+
+// ---------- organizar cadastros antigos ----------
+let MIG = null;
+async function carregarMig(dados) {
+  try { MIG = dados || await api('migracao'); } catch (e) { return toast(e.message, 'err'); }
+  const S = MIG.separar, D = MIG.duplicados, F = MIG.frotas;
+  $('#migSep').innerHTML = `<div class="mig"><h4>1. Empresa escrita junto do nome do motorista <span class="pill">${S.length}</span></h4>
+    <p class="sub">Confira a sugestão: o sistema usa o nome do cartão (tag) para descobrir quem é o motorista. Use ⇄ para inverter.</p>
+    ${S.length ? `<div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" class="ck" id="migSepTodos" checked></th><th>Cadastro hoje</th><th>Motorista</th><th></th><th>Empresa</th><th>Quem paga</th><th></th></tr></thead><tbody>
+    ${S.map((x, i) => `<tr data-i="${i}"><td><input type="checkbox" class="ck migSepCk" checked></td>
+      <td style="min-width:200px"><b>${esc(x.nome)}</b><br><small class="muted">${esc(x.placa)} · cartão: ${esc(x.card_name || '—')} · ${esc(x.motivo)}</small></td>
+      <td><input class="migMot" value="${esc(x.motorista_nome)}"></td>
+      <td><button class="btn sm migTroca" title="Inverter motorista e empresa">⇄</button></td>
+      <td><input class="migEmp" value="${esc(x.empresa_nome)}" list="dlEmpresas"></td>
+      <td><select class="migPag"><option value="EMPRESA">Empresa</option><option value="MOTORISTA">Motorista</option></select></td>
+      <td><button class="btn sm migIgn" title="Não é o caso, não mostrar mais">Ignorar</button></td></tr>`).join('')}</tbody></table></div>
+    <div class="acoes" style="justify-content:space-between;align-items:center">
+      <label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" class="ck" id="migRenomear" checked> Trocar o nome do cadastro pelo nome do motorista (o nome antigo fica guardado)</label>
+      <button class="btn p" id="migSepAplicar">Separar selecionados</button></div>` : '<p class="muted">✅ Nenhum nome misturado encontrado.</p>'}</div>`;
+
+  $('#migDup').innerHTML = `<div class="mig"><h4>2. Mesmo caminhão cadastrado mais de uma vez <span class="pill">${D.length}</span></h4>
+    <p class="sub">Escolha qual cadastro fica (normalmente o que tem a tag). Os outros ficam ocultos, não são apagados. Se a placa trocou de dono, clique em "São diferentes".</p>
+    ${D.map((g, gi) => `<div class="dupg" data-g="${gi}"><b>Placa ${esc(g.placa)}</b>
+      ${g.membros.map(m => `<label class="opt"><input type="radio" name="dup${gi}" value="${m.id}" ${m.id === g.manter ? 'checked' : ''}>
+        <span><b>${esc(m.nome)}</b> <span class="muted">#${m.id} · tag ${esc(m.user_id || '—')} · cartão ${esc(m.card_no || '—')} · TARA ${fmt(m.tara)} kg${m.tickets ? ` · ${m.tickets} tickets` : ''}${m.empresa_vinculada ? ` · 🏢 ${esc(m.empresa_vinculada)}` : ''}</span></span></label>`).join('')}
+      <div class="row" style="align-items:flex-end;margin-top:6px">
+        <div class="f" style="flex:2;margin:0"><label>Empresa vinculada ao cadastro que fica (opcional)</label><input class="dupEmp" value="${esc(g.empresa_nome)}" list="dlEmpresas" placeholder="Sem empresa"></div>
+        <div class="f" style="flex:0 0 auto;margin:0;display:flex;gap:8px"><button class="btn sm dupIgn">São diferentes</button><button class="btn sm p dupOk">Unificar</button></div>
+      </div></div>`).join('') || '<p class="muted">✅ Nenhuma placa repetida.</p>'}</div>`;
+
+  $('#migFrota').innerHTML = `<div class="mig"><h4>3. Frotas sem empresa cadastrada <span class="pill">${F.length}</span></h4>
+    <p class="sub">Caminhões agrupados pelo nome (ex.: JOAO ARTUR ARGENTA 07, 08…). Ao criar a empresa, todos ficam vinculados a ela e a cobrança vai para a empresa.</p>
+    ${F.length ? `<div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" class="ck" id="migFrTodos"></th><th>Empresa</th><th>Caminhões</th><th>Placas</th><th></th></tr></thead><tbody>
+    ${F.map((f, i) => `<tr data-i="${i}"><td><input type="checkbox" class="ck migFrCk"></td><td><b>${esc(f.nome)}</b>${f.existe ? ' <span class="pill">já cadastrada — só vincular</span>' : ''}</td>
+      <td class="num">${f.caminhoes}</td><td style="white-space:normal">${f.placas.map(esc).join(', ')}</td><td><button class="btn sm migFrIgn">Ignorar</button></td></tr>`).join('')}</tbody></table></div>
+    <div class="acoes"><button class="btn p" id="migFrAplicar">Criar / vincular empresas selecionadas</button></div>` : '<p class="muted">✅ Nenhuma frota pendente.</p>'}</div>`;
+
+  const feitos = MIG.feitos;
+  $('#migFeitos').innerHTML = `<div class="mig"><h4>Já organizados <span class="pill">${feitos.length}</span>
+      ${MIG.ignorados ? `<button class="btn sm" id="migReIgn" style="margin-left:8px">Mostrar de novo os ${MIG.ignorados} ignorados</button>` : ''}</h4>
+    ${feitos.length ? `<div class="tbl-wrap" style="max-height:260px;overflow:auto"><table><tbody>${feitos.map(c => `<tr>
+      <td>${c.inativo ? '🙈 Oculto' : '✂️ Separado'}</td><td><b>${esc(c.nome)}</b> <span class="muted">${esc(c.placa)}</span></td>
+      <td class="muted">${c.inativo ? `unificado no cadastro #${c.unificado_em}` : `antes: ${esc(c.nome_original)}${c.empresa_vinculada ? ` · 🏢 ${esc(c.empresa_vinculada)}` : ''}`}</td>
+      <td><button class="btn sm" data-desf="${c.id}">↩ Desfazer</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nada ainda.</p>'}</div>`;
+
+  // eventos
+  $$('#migSep tr[data-i]').forEach(tr => {
+    const x = S[tr.dataset.i]; tr.querySelector('.migPag').value = x.empresa_nome ? 'EMPRESA' : 'MOTORISTA';
+    tr.querySelector('.migTroca').onclick = () => { const a = tr.querySelector('.migMot'), b = tr.querySelector('.migEmp'); [a.value, b.value] = [b.value, a.value]; };
+    tr.querySelector('.migIgn').onclick = () => migAcao('ignorar', {tipo: 'separar', chave: x.id});
+  });
+  const st = $('#migSepTodos'); if (st) st.onchange = () => $$('.migSepCk').forEach(c => c.checked = st.checked);
+  const sa = $('#migSepAplicar'); if (sa) sa.onclick = async () => {
+    const itens = $$('#migSep tr[data-i]').filter(tr => tr.querySelector('.migSepCk').checked).map(tr => ({
+      cliente_id: S[tr.dataset.i].id, motorista_nome: tr.querySelector('.migMot').value.trim(), empresa_nome: tr.querySelector('.migEmp').value.trim(),
+      pagador: tr.querySelector('.migPag').value, renomear: $('#migRenomear').checked}));
+    if (!itens.length) return toast('Selecione pelo menos um cadastro.', 'warn');
+    if (itens.some(i => !i.motorista_nome)) return toast('Preencha o nome do motorista em todos os selecionados.', 'err');
+    if (!await confirmar(`Separar motorista e empresa em ${itens.length} cadastro(s)? (backup automático antes; dá para desfazer)`)) return;
+    migAcao('separar', {itens});
+  };
+  $$('#migDup .dupg').forEach(div => {
+    const g = D[div.dataset.g];
+    div.querySelector('.dupIgn').onclick = () => migAcao('ignorar', {tipo: 'unificar', chave: g.chave});
+    div.querySelector('.dupOk').onclick = async () => {
+      const manter = +div.querySelector('input[type=radio]:checked').value, fica = g.membros.find(m => m.id === manter);
+      const ocultar = g.membros.filter(m => m.id !== manter).map(m => m.id), emp = div.querySelector('.dupEmp').value.trim();
+      if (!await confirmar(`Placa ${g.placa}: manter "${fica.nome}" e ocultar ${ocultar.length} cadastro(s)${emp ? `, vinculando à empresa ${emp}` : ''}?`)) return;
+      migAcao('unificar', {grupos: [{manter, ocultar, empresa_nome: emp}]});
+    };
+  });
+  const ft = $('#migFrTodos'); if (ft) ft.onchange = () => $$('.migFrCk').forEach(c => c.checked = ft.checked);
+  $$('#migFrota tr[data-i]').forEach(tr => tr.querySelector('.migFrIgn').onclick = () => migAcao('ignorar', {tipo: 'frota', chave: F[tr.dataset.i].nome}));
+  const fa = $('#migFrAplicar'); if (fa) fa.onclick = async () => {
+    const nomes = $$('#migFrota tr[data-i]').filter(tr => tr.querySelector('.migFrCk').checked).map(tr => F[tr.dataset.i].nome);
+    if (!nomes.length) return toast('Selecione pelo menos uma frota.', 'warn');
+    if (!await confirmar(`Criar/vincular ${nomes.length} empresa(s): ${nomes.join(', ')}?`)) return;
+    migAcao('frotas', {nomes});
+  };
+  $$('#migFeitos [data-desf]').forEach(b => b.onclick = async () => {
+    if (!await confirmar('Desfazer? O cadastro volta como era antes (nome original, sem empresa, visível).')) return;
+    migAcao('desfazer', {cliente_id: +b.dataset.desf});
+  });
+  const ri = $('#migReIgn'); if (ri) ri.onclick = () => migAcao('restaurar_ignorados', {});
+}
+async function migAcao(acao, corpo) {
+  try {
+    const r = await api('migracao/' + acao, {method: 'POST', body: corpo});
+    if (!['ignorar', 'restaurar_ignorados'].includes(acao)) toast(`Pronto: ${r.aplicados} item(ns). Backup feito antes.`, 'ok');
+    carregarEmpresas();
+    if (['ignorar', 'restaurar_ignorados'].includes(acao)) carregarMig(r); else carregarEmpresasTab();
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#migAtualizar').onclick = () => carregarMig();
+
+// ---------- aba Valores ----------
+let planoAtualEd = null;
+async function carregarPlanos() {
+  await carregarRefs();
+  $('#tbPlanos').innerHTML = PLANOS.map(p => `<tr data-id="${p.id}" style="cursor:pointer" class="${p.ativo ? '' : 'oculto'}">
+    <td><button class="btn sm b">✏️ Editar</button></td><td><b>${esc(p.nome)}</b>${p.padrao ? ' <span class="pill">PADRÃO</span>' : ''}</td>
+    <td>${esc(p.tipo_nome)}</td><td class="num"><b>${brl(p.valor)}</b>${p.tipo === 'TONELADA' ? '/t' : p.tipo === 'MENSAL' ? '/mês' : ''}</td>
+    <td>${p.tipo === 'MENSAL' ? (p.franquia ? `${p.franquia} pesagens/mês · excedente ${brl(p.valor_excedente)}` : 'ilimitado') : '—'}</td>
+    <td>${p.empresas} empresa(s) · ${p.motoristas} motorista(s)</td>
+    <td>${p.ativo ? '<span class="stf ok">Ativa</span>' : '<span class="stf pend">Inativa</span>'}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="vazio">Nenhum valor cadastrado. Clique em "+ Novo valor / pacote".</td></tr>';
+}
+$('#tbPlanos').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) abrirPlano(PLANOS.find(p => p.id == tr.dataset.id)); };
+$('#novoPlano').onclick = () => abrirPlano({tipo: 'PESAGEM', ativo: 1, padrao: PLANOS.length ? 0 : 1});
+function tipoPlanoUI() {
+  const t = $('#mp_tipo').value;
+  $('#mpValorLbl').textContent = {PESAGEM: 'Valor por pesagem (R$) *', TONELADA: 'Valor por tonelada (R$) *', MENSAL: 'Mensalidade (R$) *'}[t];
+  $$('.mpMensal').forEach(el => el.hidden = t !== 'MENSAL');
+}
+$('#mp_tipo').onchange = tipoPlanoUI;
+function abrirPlano(p) {
+  planoAtualEd = p.id ? p : null;
+  $('#mpTitulo').textContent = planoAtualEd ? `Editar: ${p.nome}` : 'Novo valor / pacote';
+  ['nome', 'tipo', 'observacao'].forEach(k => $('#mp_' + k).value = p[k] ?? '');
+  ['valor', 'valor_excedente'].forEach(k => $('#mp_' + k).value = p[k] != null ? String(p[k]).replace('.', ',') : '');
+  $('#mp_franquia').value = p.franquia ?? '';
+  $('#mp_padrao').checked = !!p.padrao; $('#mp_ativo').checked = p.ativo !== 0;
+  $('#mpExcluir').hidden = !planoAtualEd; tipoPlanoUI(); $('#modalPlano').classList.add('on'); $('#mp_nome').focus();
+}
+$('#mpFechar').onclick = () => $('#modalPlano').classList.remove('on');
+$('#mpSalvar').onclick = async () => {
+  const d = {nome: $('#mp_nome').value.trim(), tipo: $('#mp_tipo').value, valor: numero($('#mp_valor').value),
+    franquia: numero($('#mp_franquia').value) || 0, valor_excedente: numero($('#mp_valor_excedente').value) || 0,
+    padrao: $('#mp_padrao').checked, ativo: $('#mp_ativo').checked, observacao: $('#mp_observacao').value.trim()};
+  if (!d.nome) return toast('Informe o nome.', 'err');
+  if (d.valor === null) return toast('Informe o valor.', 'err');
+  try {
+    await (planoAtualEd ? api('planos/' + planoAtualEd.id, {method: 'PUT', body: d}) : api('planos', {method: 'POST', body: d}));
+    $('#modalPlano').classList.remove('on'); toast('Tabela de valor salva.', 'ok'); carregarPlanos();
+  } catch (e) { toast(e.message, 'err'); }
+};
+$('#mpExcluir').onclick = async () => {
+  if (!planoAtualEd || !await confirmar(`Excluir a tabela ${planoAtualEd.nome}? Se estiver em uso, ela só é desativada.`)) return;
+  try { const r = await api('planos/' + planoAtualEd.id, {method: 'DELETE'}); $('#modalPlano').classList.remove('on');
+    toast(r.desativado ? 'Tabela em uso: foi desativada.' : 'Tabela excluída.', 'warn'); carregarPlanos(); }
+  catch (e) { toast(e.message, 'err'); }
+};
+
+// ---------- aba Faturamento ----------
+let FAT = null;
+const REGRAS = {manual: 'Valor manual', pesagem: 'Por pesagem', tonelada: 'Por tonelada', pacote: 'No pacote', excedente: 'Excedente do pacote', sem_tabela: '⚠ Sem tabela'};
+const mesBR = m => { const [a, mm] = m.split('-'); return `${MESES[mm - 1]}/${a}`; };
+function fatPeriodo(p) {
+  const h = new Date(), d = n => new Date(h.getFullYear(), h.getMonth(), h.getDate() - n);
+  const r = {7: [d(6), d(0)], 30: [d(29), d(0)], mes: [new Date(h.getFullYear(), h.getMonth(), 1), new Date(h.getFullYear(), h.getMonth() + 1, 0)],
+    mesant: [new Date(h.getFullYear(), h.getMonth() - 1, 1), new Date(h.getFullYear(), h.getMonth(), 0)]}[p];
+  $('#fatIni').value = iso(r[0]); $('#fatFim').value = iso(r[1]); calcularFat();
+}
+$$('[data-fper]').forEach(b => b.onclick = () => fatPeriodo(b.dataset.fper));
+async function abrirFaturamento() {
+  await carregarRefs();
+  if (!$('#fatIni').value) return fatPeriodo('mes');
+  calcularFat();
+}
+const fatParams = () => new URLSearchParams({inicio: $('#fatIni').value, fim: $('#fatFim').value, q: $('#fatQ').value.trim()}).toString();
+async function calcularFat() {
+  if ($('#fatIni').value > $('#fatFim').value) return toast('A data inicial é maior que a final.', 'err');
+  try { FAT = await api('faturamento?' + fatParams()); } catch (e) { return toast(e.message, 'err'); }
+  const t = FAT.totais;
+  $('#fatKpis').innerHTML = [['Pagadores', t.pagadores], ['Pesagens', fmt(t.pesagens)], ['Peso líquido', ton(t.liquido)],
+    ['Total do período', brl(t.valor)], ['A faturar', brl(t.a_faturar)]].map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  $('#fatAviso').innerHTML = (!FAT.plano_padrao ? '⚠️ Não há tabela de valor <b>padrão</b> — cadastre em "Valores", senão quem não tem tabela própria fica com valor zero. ' : '')
+    + (t.sem_valor ? `⚠️ ${t.sem_valor} pesagem(ns) sem tabela de valor. ` : '')
+    + (FAT.meses.length > 1 ? `Pacotes mensais: cobrada uma mensalidade por mês do período (${FAT.meses.map(mesBR).join(', ')}).` : '');
+  $('#fatLista').innerHTML = FAT.pagadores.map((g, i) => {
+    const pl = g.plano ? `${esc(g.plano.nome)} (${esc(g.plano.tipo_nome)}${g.plano_padrao ? ', padrão' : ''})` : 'sem tabela de valor';
+    return `<div class="pag" data-i="${i}"><div class="pag-h">
+      <span class="tp ${g.tipo === 'EMPRESA' ? 'E' : 'M'}">${g.tipo === 'EMPRESA' ? '🏢 EMPRESA' : '👤 MOTORISTA'}</span>
+      <div class="nm"><b>${esc(g.pagador)}</b><small>${pl} · ${g.motoristas.length} motorista(s): ${g.motoristas.slice(0, 4).map(m => esc(m.nome)).join(', ')}${g.motoristas.length > 4 ? '…' : ''}</small></div>
+      <div class="muted">${g.pesagens} ${plural(g.pesagens, 'pesagem', 'pesagens')} · ${ton(g.liquido)}</div>
+      <span class="stf ${g.pendentes ? 'pend' : 'ok'}">${g.pendentes ? 'A faturar ' + brl(g.a_faturar) : '✓ Faturado'}</span>
+      <div class="vl">${brl(g.valor)}</div></div>
+      <div class="pag-b" hidden></div></div>`;
+  }).join('') || '<div class="card vazio">Nenhuma pesagem nem pacote mensal no período.</div>';
+  carregarFaturas();
+}
+$('#fatLista').onclick = e => {
+  const h = e.target.closest('.pag-h'); if (!h) return;
+  const box = h.parentElement, b = box.querySelector('.pag-b'), g = FAT.pagadores[box.dataset.i];
+  if (!b.hidden) { b.hidden = true; return; }
+  b.innerHTML = `<div class="acoes" style="justify-content:flex-start;margin:0 0 12px">
+      <button class="btn sm" data-a="imp">🖨️ Imprimir fechamento</button>
+      <button class="btn sm p" data-a="fat" ${g.pendentes ? '' : 'disabled'}>🧾 Gerar fatura (${brl(g.a_faturar)})</button>
+      <button class="btn sm" data-a="rel">📊 Ver no relatório</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Motorista</th><th>Placas</th><th>Pesagens</th><th>Líquido (kg)</th><th>Valor</th></tr></thead><tbody>
+      ${g.motoristas.map(m => `<tr><td><b>${esc(m.nome)}</b></td><td>${m.placas.map(esc).join(', ')}</td><td class="num">${m.pesagens}</td><td class="num">${fmt(m.liquido)}</td><td class="num">${brl(m.valor)}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${g.mensalidades.length ? `<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Mensalidade</th><th>Pesagens usadas</th><th>Excedentes</th><th>Valor</th><th>Fatura</th></tr></thead><tbody>
+      ${g.mensalidades.map(m => `<tr><td>${mesBR(m.mes)}</td><td class="num">${m.usadas}${m.franquia ? ' de ' + m.franquia : ''}</td><td class="num">${m.excedentes}</td><td class="num">${brl(m.valor)}</td><td>${m.fatura ? 'Nº ' + m.fatura : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <div class="tbl-wrap" style="margin-top:10px;max-height:340px;overflow:auto"><table><thead><tr><th>Nº</th><th>Data</th><th>Placa</th><th>Motorista</th><th>Item</th><th>Líquido</th><th>Valor</th><th>Regra</th><th>Fatura</th></tr></thead><tbody>
+      ${g.linhas.map(x => `<tr><td>${esc(x.numero)}</td><td>${dataBR(x.data)}</td><td><b>${esc(x.placa)}</b></td><td>${esc(x.motorista)}</td><td>${esc(x.item)}</td>
+        <td class="num">${fmt(x.liquido)}</td><td class="num">${brl(x.valor)}</td><td class="muted">${REGRAS[x.regra] || x.regra}</td><td>${x.fatura ? 'Nº ' + x.fatura : '—'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  b.hidden = false;
+  b.querySelector('[data-a=imp]').onclick = () => imprimirFechamento({titulo: 'Fechamento de pesagens', pagador: g.pagador, tipo: g.tipo, empresa_id: g.empresa_id,
+    inicio: FAT.inicio, fim: FAT.fim, plano: g.plano, linhas: g.linhas, mensalidades: g.mensalidades, motoristas: g.motoristas, valor: g.valor});
+  b.querySelector('[data-a=fat]').onclick = () => gerarFatura(g);
+  b.querySelector('[data-a=rel]').onclick = () => { $('#relIni').value = FAT.inicio; $('#relFim').value = FAT.fim;
+    ['#relEmp', '#relMot', '#relQ'].forEach(i => $(i).value = ''); $('#relPag').value = g.pagador; irPara('relatorios'); };
+};
+$('#fatGerar').onclick = calcularFat;
+$('#fatQ').onkeydown = e => { if (e.key === 'Enter') calcularFat(); };
+[$('#fatIni'), $('#fatFim')].forEach(el => el.onchange = calcularFat);
+$('#fatCsv').onclick = () => { location.href = '/api/faturamento.csv?' + fatParams(); };
+async function gerarFatura(g) {
+  if (!await confirmar(`Gerar fatura para ${g.pagador} de ${dataBR(FAT.inicio).slice(0, 10)} a ${dataBR(FAT.fim).slice(0, 10)} no valor de ${brl(g.a_faturar)}?`)) return;
+  try {
+    const f = await api('faturas', {method: 'POST', body: {inicio: FAT.inicio, fim: FAT.fim, chave: g.chave}});
+    toast(`Fatura <b>Nº ${f.id}</b> gerada: ${brl(f.valor)}`, 'ok'); calcularFat(); imprimirFatura(f);
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function carregarFaturas() {
+  const l = await api('faturas?status=' + $('#fatStatus').value);
+  $('#tbFaturas').innerHTML = l.map(f => `<tr><td><b>${f.id}</b></td><td>${f.pagador_tipo === 'EMPRESA' ? '🏢' : '👤'} ${esc(f.pagador)}</td>
+    <td>${dataBR(f.inicio).slice(0, 10)} a ${dataBR(f.fim).slice(0, 10)}</td><td class="num">${f.pesagens}</td><td class="num"><b>${brl(f.valor)}</b></td>
+    <td><span class="stf ${f.status === 'PAGA' ? 'paga' : 'aberta'}">${f.status === 'PAGA' ? '✓ Paga ' + dataBR(f.pago_em).slice(0, 10) : 'Em aberto'}</span></td>
+    <td>${dataBR(f.criado_em)}</td>
+    <td><button class="btn sm" data-f="imp" data-id="${f.id}">🖨️</button>
+      <button class="btn sm ${f.status === 'PAGA' ? '' : 'p'}" data-f="${f.status === 'PAGA' ? 'abrir' : 'pagar'}" data-id="${f.id}">${f.status === 'PAGA' ? 'Reabrir' : '✓ Marcar paga'}</button>
+      <button class="btn sm d" data-f="del" data-id="${f.id}" title="Excluir fatura (as pesagens voltam para o a faturar)">🗑️</button></td></tr>`).join('')
+    || '<tr><td colspan="8" class="vazio">Nenhuma fatura gerada.</td></tr>';
+}
+$('#fatStatus').onchange = carregarFaturas;
+$('#tbFaturas').onclick = async e => {
+  const b = e.target.closest('[data-f]'); if (!b) return; const id = b.dataset.id;
+  try {
+    if (b.dataset.f === 'imp') return imprimirFatura(await api('faturas/' + id));
+    if (b.dataset.f === 'pagar' || b.dataset.f === 'abrir') { await api('faturas/' + id, {method: 'PUT', body: {status: b.dataset.f === 'pagar' ? 'PAGA' : 'ABERTA'}}); toast('Fatura atualizada.', 'ok'); }
+    if (b.dataset.f === 'del') { if (!await confirmar(`Excluir a fatura Nº ${id}? As pesagens dela voltam para o "a faturar".`)) return;
+      await api('faturas/' + id, {method: 'DELETE'}); toast('Fatura excluída.', 'warn'); }
+    $('#tab-faturamento').classList.contains('on') && FAT ? calcularFat() : carregarFaturas();
+  } catch (err) { toast(err.message, 'err'); }
+};
+function imprimirFatura(f) {
+  const d = f.detalhes || {};
+  imprimirFechamento({titulo: `Fatura Nº ${f.id}`, pagador: f.pagador, tipo: f.pagador_tipo, empresa_id: f.empresa_id, inicio: f.inicio, fim: f.fim,
+    plano: d.plano, linhas: d.linhas || [], mensalidades: d.mensalidades || [], motoristas: d.motoristas || [], valor: f.valor,
+    situacao: f.status === 'PAGA' ? `PAGA em ${dataBR(f.pago_em).slice(0, 10)}` : 'EM ABERTO', obs: f.observacao});
+}
+function imprimirFechamento(x) {
+  const e = EMPRESAS.find(e => e.id === x.empresa_id), per = `${dataBR(x.inicio).slice(0, 10)} a ${dataBR(x.fim).slice(0, 10)}`;
+  const liq = x.linhas.reduce((a, l) => a + (l.liquido || 0), 0);
+  const tab = (cab, linhas, rod) => `<table><thead><tr>${cab.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody>${rod ? `<tfoot>${rod}</tfoot>` : ''}</table>`;
+  $('#print-area').innerHTML = `<div class="relp">
+    <h1>${esc(CFG.empresa)} — ${esc(x.titulo)}</h1>
+    <div class="sub">Período: <b>${per}</b> · Emitido em ${new Date().toLocaleString('pt-BR')}${x.situacao ? ` · Situação: <b>${x.situacao}</b>` : ''}</div>
+    <table><tbody><tr><td style="width:60%"><b>${x.tipo === 'EMPRESA' ? 'EMPRESA' : 'MOTORISTA / PROPRIETÁRIO'}:</b> <span style="font-size:15px;font-weight:700">${esc(x.pagador)}</span>
+      ${e ? `<br>${[e.documento && 'CNPJ/CPF: ' + esc(e.documento), e.telefone && 'Tel.: ' + esc(e.telefone), e.email && esc(e.email)].filter(Boolean).join(' · ')}${e.endereco ? '<br>' + esc(e.endereco) : ''}` : ''}</td>
+      <td><b>Tabela de valor:</b> ${x.plano ? `${esc(x.plano.nome)} (${esc(x.plano.tipo_nome || '')})` : '—'}</td></tr></tbody></table>
+    <div class="kp"><span>Pesagens: <b>${x.linhas.length}</b></span><span>Peso líquido: <b>${fmt(liq)} kg</b></span><span>Valor total: <b>${brl(x.valor)}</b></span></div>
+    ${x.motoristas.length > 1 || x.tipo === 'EMPRESA' ? tab(['Motorista', 'Placas', 'Pesagens', 'Líquido (kg)', 'Valor'],
+      x.motoristas.map(m => `<tr><td>${esc(m.nome)}</td><td>${(m.placas || []).map(esc).join(', ')}</td><td class="n">${m.pesagens}</td><td class="n">${fmt(m.liquido)}</td><td class="n">${brl(m.valor)}</td></tr>`).join('')) : ''}
+    ${x.mensalidades.length ? tab(['Mensalidade do pacote', 'Pesagens usadas', 'Excedentes', 'Valor'],
+      x.mensalidades.map(m => `<tr><td>${mesBR(m.mes)}</td><td class="n">${m.usadas}${m.franquia ? ' de ' + m.franquia : ''}</td><td class="n">${m.excedentes}</td><td class="n">${brl(m.valor)}</td></tr>`).join('')) : ''}
+    ${tab(['Nº', 'Data', 'Placa', 'Motorista', 'Empresa', 'Item', 'Líquido (kg)', 'Valor', 'Regra'],
+      x.linhas.slice().sort((a, b) => (a.data || '').localeCompare(b.data || '')).map(l => `<tr><td>${esc(l.numero)}</td><td>${dataBR(l.data)}</td><td>${esc(l.placa)}</td><td>${esc(l.motorista)}</td>
+        <td>${esc(l.empresa)}</td><td>${esc(l.item)}</td><td class="n">${fmt(l.liquido)}</td><td class="n">${brl(l.valor)}</td><td>${REGRAS[l.regra] || ''}</td></tr>`).join(''),
+      `<tr><td colspan="6">TOTAL (${x.linhas.length} pesagens${x.mensalidades.length ? ' + mensalidades' : ''})</td><td class="n">${fmt(liq)}</td><td class="n">${brl(x.valor)}</td><td></td></tr>`)}
+    ${x.obs ? `<div class="sub">Obs.: ${esc(x.obs)}</div>` : ''}
+    <div style="margin-top:40px;display:flex;gap:60px"><div style="flex:1;border-top:1px solid #000;text-align:center;padding-top:4px">${esc(CFG.empresa)}</div>
+      <div style="flex:1;border-top:1px solid #000;text-align:center;padding-top:4px">${esc(x.pagador)}</div></div>
+  </div>`;
+  setTimeout(() => window.print(), 150);
+}
+
+// ---------- configurações ----------
+// ---------- backup ----------
+const tam = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+const MOTIVOS = {'automático': 'Automático', manual: 'Manual', antes_restaurar: 'Antes de restaurar',
+  antes_migracao: 'Antes de organizar cadastros', antes_atualizacao: 'Antes da atualização'};
+function statusBackup(r) {
+  const ok = r.ativo && r.ultimo && !r.erro && r.horas_desde_ultimo < (CFG.backup?.intervalo_horas || 6) * 2;
+  $('#dotBkp').className = 'dot ' + (r.erro ? 'err' : ok ? 'ok' : 'warn');
+  $('#badgeBkp').title = r.erro ? 'Erro no backup: ' + r.erro : r.ultimo ? `Último backup: ${dataBR(r.ultimo.quando)}` : 'Nenhum backup ainda';
+}
+async function carregarBackups() {
+  const {resumo: r, arquivos} = await api('backups'); statusBackup(r);
+  $('#bkpResumo').innerHTML = `${r.quantidade} backup(s) em <code>${esc(r.pasta)}</code> · último: <b>${r.ultimo ? dataBR(r.ultimo.quando) : 'nenhum'}</b>` +
+    (r.erro ? ` · <span style="color:var(--err)">erro: ${esc(r.erro)}</span>` : '');
+  $('#tbBkp').innerHTML = arquivos.map(b => `<tr><td><code>${esc(b.nome)}</code></td><td>${dataBR(b.quando)}</td>
+    <td>${MOTIVOS[b.motivo] || esc(b.motivo)}</td><td class="num">${tam(b.tamanho)}</td>
+    <td><a class="btn sm" href="/api/backups/${encodeURIComponent(b.nome)}/baixar">⬇ Baixar</a>
+        <button class="btn sm b" onclick="restaurarBackup('${b.nome}')">↩ Restaurar</button>
+        <button class="btn sm d" onclick="excluirBackup('${b.nome}')">🗑️</button></td></tr>`).join('')
+    || '<tr><td colspan="5" class="vazio">Nenhum backup ainda.</td></tr>';
+}
+$('#bkpAgora').onclick = async () => {
+  try { const b = await api('backups', {method: 'POST'}); toast(`Backup criado: <b>${esc(b.nome)}</b>`, 'ok'); carregarBackups(); }
+  catch (e) { toast('Erro no backup: ' + e.message, 'err'); }
+};
+async function restaurarBackup(nome) {
+  if (!await confirmar(`Restaurar o banco a partir de ${nome}? Tudo o que foi feito depois desse backup será substituído. (Um backup do estado atual é feito antes, para poder desfazer.)`)) return;
+  try {
+    const r = await api(`backups/${encodeURIComponent(nome)}/restaurar`, {method: 'POST'});
+    toast(`Banco restaurado de <b>${esc(r.restaurado)}</b>. Backup de segurança: ${esc(r.backup_de_seguranca)}`, 'ok');
+    carregarBackups(); atualizarResumo(); carregarCad(); carregarEmpresas();
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function excluirBackup(nome) {
+  if (!await confirmar(`Excluir o arquivo de backup ${nome}?`)) return;
+  try { await api(`backups/${encodeURIComponent(nome)}`, {method: 'DELETE'}); toast('Backup excluído.', 'warn'); carregarBackups(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+$('#badgeBkp').onclick = () => { irPara('config'); setTimeout(() => $('#cardBackup').scrollIntoView({behavior: 'smooth'}), 100); };
+
+function carregarCfg() {
+  $('#cfgEmpresa').value = CFG.empresa; $('#cfgNumBal').value = CFG.numero_balanca; $('#cfgVias').value = CFG.vias_impressao;
+  $('#cfgBalUrl').value = CFG.balanca_url; $('#cfgLegado').checked = CFG.registrar_no_historico_antigo; $('#cfgKiosk').checked = CFG.chrome_impressao_direta;
+  $('#cfgBanco').textContent = CFG.banco_absoluto;
+  $('#incAtivo').checked = CFG.incontrol.ativo; $('#incUrl').value = CFG.incontrol.url; $('#incUser').value = CFG.incontrol.usuario; $('#incSenha').value = CFG.incontrol.senha;
+  $('#bkpAtivo').checked = CFG.backup.ativo; $('#bkpIntervalo').value = CFG.backup.intervalo_horas;
+  $('#bkpManter').value = CFG.backup.manter; $('#bkpPasta').value = CFG.backup.pasta;
+  carregarBackups();
+}
+async function salvarCfg() {
+  CFG = await api('config', {method: 'POST', body: {
+    empresa: $('#cfgEmpresa').value, numero_balanca: parseInt($('#cfgNumBal').value) || 1, vias_impressao: parseInt($('#cfgVias').value) || 1,
+    balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
+    incontrol: {ativo: $('#incAtivo').checked, url: $('#incUrl').value, usuario: $('#incUser').value, senha: $('#incSenha').value},
+    backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
+             manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'}}});
+  ultimaChaveTag = null; atualizarResumo(); carregarBackups();
+}
+$('#cfgSalvar').onclick = async () => { try { await salvarCfg(); toast('Configurações salvas.', 'ok'); } catch (e) { toast(e.message, 'err'); } };
+$('#incTeste').onclick = async () => {
+  await salvarCfg(); const pre = $('#incDebug'); pre.hidden = false; pre.textContent = 'Consultando InControl…';
+  const r = await api('tag/ultima?debug=1'); pre.textContent = JSON.stringify(r, null, 2);
+};
+
+// ---------- início ----------
+atualizarResumo().then(() => { carregarCad(); carregarEmpresas(); carregarRefs(); lerTag(); });
+setInterval(atualizarResumo, 30000);
+calcular();
+const mHash = location.hash.match(/^#imprimir=(\d+)/); if (mHash) atualizarResumo().then(() => reimprimir(mHash[1]));
+</script>
+</body>
+</html>

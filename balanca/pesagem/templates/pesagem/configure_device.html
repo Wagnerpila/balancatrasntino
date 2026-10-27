@@ -1,0 +1,13 @@
+<form method="post">
+    {% csrf_token %}
+    <label for="ntp_address">NTP Server Address</label>
+    <input type="text" id="ntp_address" name="ntp_address" value="a.ntp.br">
+
+    <label for="ntp_port">NTP Port</label>
+    <input type="text" id="ntp_port" name="ntp_port" value="123">
+    
+    <label for="ntp_enable">Enable NTP</label>
+    <input type="checkbox" id="ntp_enable" name="ntp_enable" checked>
+
+    <button type="submit">Configure Device</button>
+</form>
