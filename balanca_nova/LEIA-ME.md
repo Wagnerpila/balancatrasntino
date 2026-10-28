@@ -222,3 +222,13 @@ Fica em `config.json`: porta, caminho do banco, URL da balança, nome da empresa
 - Ligar em Configurações → "Aviso no WhatsApp": números (com DDD, separados por vírgula) e o link. O botão "Enviar mensagem de teste" testa tudo.
 - A extensão fala com o sistema em `http://127.0.0.1:8090`. Se a porta mudar, ajustar `whatsapp_extensao/manifest.json` e `fundo.js`.
 - Falhas de envio aparecem no Log de falhas (tipo WhatsApp).
+
+## Ticket pelo WhatsApp
+- Ao encerrar a pesagem, se o cadastro tiver um telefone válido, o sistema manda para esse número:
+  o texto do ticket, a imagem do ticket e a foto da câmera do momento em que a placa foi lida.
+  Sem leitura da placa, vai a foto do encerramento.
+- Telefones como 00000000000, 99999999999 ou sem DDD são ignorados.
+- Desligar em Configurações → "Aviso no WhatsApp" → "Ao encerrar a pesagem, mandar o ticket".
+- Testar sem gravar pesagem: no mesmo cartão, digite a placa e clique em "Enviar ticket de teste". O peso usado é o atual da balança.
+- A extensão anexa as imagens pelo botão Anexar do WhatsApp Web (com arrastar e soltar e colar como alternativas).
+  Se o WhatsApp mudar a tela, use `GET /api/whatsapp/diag?pedir=1` e depois `/api/whatsapp/diag`: a extensão lista os botões da tela, sem enviar nada.

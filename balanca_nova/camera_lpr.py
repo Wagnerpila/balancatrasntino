@@ -13,6 +13,7 @@ Programa auxiliar da câmera da balança (iniciado sozinho pelo servidor.py).
 Roda com o Python da pasta lpr_venv (instalado pelo INSTALAR_CAMERA.bat).
 """
 import argparse
+import base64
 import json
 import os
 import sys
@@ -136,7 +137,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 ALPR["erro"] = f"{type(e).__name__}: {e}"
                 return self._json({"placas": [], "erro": ALPR["erro"]})
-            return self._json({"placas": placas})
+            res = {"placas": placas}
+            if placas and q.get("foto"):  # a imagem exata em que a placa foi lida
+                ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if ok:
+                    res["foto"] = base64.b64encode(jpg.tobytes()).decode()
+            return self._json(res)
         self._json({"erro": "rota não encontrada"}, 404)
 
 

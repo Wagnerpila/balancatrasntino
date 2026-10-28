@@ -783,12 +783,17 @@ tr.oculto td{opacity:.55}
       Quem envia é o WhatsApp Web aberto no Chrome (perfil <b>Balança Transtino</b>), com a extensão <b>"Balança Transtino — Avisos no WhatsApp"</b> instalada
       (pasta <code>balanca_nova\whatsapp_extensao</code>). Deixe a aba do WhatsApp Web aberta.</p>
     <div class="f"><label><input type="checkbox" id="whAtivo" style="width:auto"> Mandar aviso quando um caminhão entrar na balança</label></div>
+    <div class="f"><label><input type="checkbox" id="whTicket" style="width:auto"> Ao encerrar a pesagem, mandar o ticket (com a foto da câmera da leitura da placa) para o telefone do cadastro</label></div>
     <div class="row">
       <div class="f" style="flex:2"><label>Números que recebem (com DDD; separe por vírgula)</label><input id="whNumeros" placeholder="42 9809-1054"></div>
       <div class="f" style="flex:2"><label>Link enviado na mensagem</label><input id="whLink" placeholder="https://balancatranstino.wcmdigital.com.br"></div>
     </div>
     <p style="font-size:13px;margin:0 0 10px" id="whEstado"></p>
     <button class="btn sm" id="whTeste">Enviar mensagem de teste</button>
+    <div class="row" style="margin-top:10px;align-items:flex-end">
+      <div class="f"><label>Testar o envio do ticket para o telefone do cadastro da placa</label><input id="whPlacaTeste" placeholder="AKV2033"></div>
+      <div class="f" style="flex:0 0 auto"><button class="btn sm" id="whTicketTeste">Enviar ticket de teste</button></div>
+    </div>
   </div>
   <div class="card" id="cardFalhas">
     <h3>📋 Log de falhas <span class="pill" id="nFalhas"></span><span class="spacer"></span><button class="btn sm" id="falhasAtualizar">↻ Atualizar</button></h3>
@@ -1035,7 +1040,7 @@ tr.oculto td{opacity:.55}
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 // aberto pelo servidor só para montar a imagem do ticket: nada de balança, câmera ou automático aqui
-const MODO_IMG = location.hash.match(/^#ticketimg=(\d+)&foto=(\d)/);
+const MODO_IMG = location.hash.match(/^#ticketimg=(\d+|teste-\d+)&foto=(\d)/);
 // aberto neste computador (127.0.0.1) = tela da balança; pela internet (espelho) só acompanha:
 // a pesagem automática roda só aqui, para não haver pesagem em dobro
 const LOCAL = ['127.0.0.1', 'localhost'].includes(location.hostname);
@@ -2742,7 +2747,7 @@ function carregarCfg() {
   $('#bkpAtivo').checked = CFG.backup.ativo; $('#bkpIntervalo').value = CFG.backup.intervalo_horas;
   $('#bkpManter').value = CFG.backup.manter; $('#bkpPasta').value = CFG.backup.pasta;
   const wh = CFG.whatsapp || {};
-  $('#whAtivo').checked = !!wh.ativo; $('#whNumeros').value = wh.numeros || ''; $('#whLink').value = wh.link || '';
+  $('#whAtivo').checked = !!wh.ativo; $('#whTicket').checked = wh.enviar_ticket !== false; $('#whNumeros').value = wh.numeros || ''; $('#whLink').value = wh.link || '';
   estadoWhats();
   $('#espAtivo').checked = CFG.espelho?.ativo; $('#espUrl').value = CFG.espelho?.url || ''; $('#espToken').value = CFG.espelho?.token || '';
   const cm = CFG.camera;
@@ -2758,7 +2763,7 @@ async function salvarCfg() {
     balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, pesagem_unica: $('#cfgUnica').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
     incontrol: {ativo: $('#incAtivo').checked, url: $('#incUrl').value, usuario: $('#incUser').value, senha: $('#incSenha').value},
     espelho: {ativo: $('#espAtivo').checked, url: $('#espUrl').value.trim(), token: $('#espToken').value},
-    whatsapp: {ativo: $('#whAtivo').checked, numeros: $('#whNumeros').value.trim(), link: $('#whLink').value.trim()},
+    whatsapp: {ativo: $('#whAtivo').checked, enviar_ticket: $('#whTicket').checked, numeros: $('#whNumeros').value.trim(), link: $('#whLink').value.trim()},
     backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
              manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'},
     camera: {ativo: $('#camAtivo').checked, url: $('#camUrl').value.trim(), usuario: $('#camUser').value.trim(), senha: $('#camSenha').value,
@@ -2790,7 +2795,7 @@ async function carregarFalhas() {
 $('#falhasAtualizar').onclick = carregarFalhas;
 const ESTADO_WHATS = {conectado: '🟢 WhatsApp Web conectado', conversa: '🟢 WhatsApp Web conectado', pronto: '🟢 WhatsApp Web conectado',
   qr: '🟡 WhatsApp Web desconectado — escaneie o QR code na aba do WhatsApp', carregando: '⏳ WhatsApp Web carregando…',
-  invalido: '🟢 WhatsApp Web conectado', fechado: '⚪ WhatsApp Web não está aberto no Chrome (ou a extensão da balança não está instalada)'};
+  invalido: '🟢 WhatsApp Web conectado', enviando: '📤 WhatsApp Web enviando…', fechado: '⚪ WhatsApp Web não está aberto no Chrome (ou a extensão da balança não está instalada)'};
 async function estadoWhats() {
   try {
     const r = await api('whatsapp/status');
@@ -2799,6 +2804,19 @@ async function estadoWhats() {
       (r.erro ? `<br><span style="color:var(--err)">⚠️ ${esc(r.erro)}</span>` : '');
   } catch (e) {}
 }
+$('#whTicketTeste').onclick = async () => {
+  try {
+    const placa = $('#whPlacaTeste').value.trim();
+    if (!placa) return toast('Digite a placa do cadastro.', 'warn');
+    const c = (await api('camera/buscar?placa=' + encodeURIComponent(placa))).clientes[0];
+    if (!c) return toast(`Nenhum cadastro com a placa ${esc(placa)}.`, 'err');
+    toast(`Montando o ticket de teste de <b>${esc(c.nome)}</b>…`);
+    const r = await api('tickets/teste?cliente=' + c.id, {method: 'POST', body: {}});
+    if (r.erro) return toast(esc(r.erro), 'err');
+    toast(`Ticket de teste na fila para ${r.numero} (${r.arquivos} imagens) — confira o WhatsApp.`, 'ok');
+    for (const t of [10000, 30000, 60000]) setTimeout(estadoWhats, t);
+  } catch (e) { toast(e.message, 'err'); }
+};
 $('#whTeste').onclick = async () => {
   try {
     await salvarCfg(); const r = await api('whatsapp/teste', {method: 'POST'});
@@ -2822,7 +2840,8 @@ $('#incTeste').onclick = async () => {
 if (MODO_IMG) {
   document.documentElement.classList.add('modo-img');
   atualizarResumo().then(async () => {
-    const t = await api('tickets/' + MODO_IMG[1]);
+    const teste = MODO_IMG[1].match(/^teste-(\d+)$/);
+    const t = await api(teste ? 'tickets/teste?cliente=' + teste[1] : 'tickets/' + MODO_IMG[1]);
     $('#print-area').innerHTML = htmlTicket(t, MODO_IMG[2] === '1');
   });
 }

@@ -82,6 +82,7 @@ DEFAULT_CONFIG = {
         "numeros": "",
         "link": "https://balancatranstino.wcmdigital.com.br",
         "espera_placa": 25,
+        "enviar_ticket": True,
     },
 }
 
@@ -572,26 +573,32 @@ def listar_impressoras():
     return {"impressoras": [n.strip() for n in nomes.splitlines() if n.strip()], "padrao": padrao.strip()}
 
 
+def imagem_ticket(tid, foto=False, altura=1123):
+    """Monta a imagem (PNG) do ticket com o Chrome sem tela. tid pode ser "teste-<cliente>"."""
+    chrome = chrome_exe()
+    if not chrome:
+        raise RuntimeError("Chrome não encontrado para montar o ticket")
+    pasta = os.path.join(BASE, "impressao")
+    os.makedirs(pasta, exist_ok=True)
+    png = os.path.join(pasta, f"ticket_{tid}.png")
+    if os.path.exists(png):
+        os.remove(png)
+    url = (f"http://127.0.0.1:{int(CONFIG.get('porta', 8080))}/?img={time.time():.0f}"
+           f"#ticketimg={tid}&foto={1 if foto else 0}")
+    subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+                    "--force-device-scale-factor=2", f"--window-size=794,{int(altura)}", "--virtual-time-budget=15000",
+                    f"--user-data-dir={os.path.join(BASE, 'chrome_impressao')}", f"--screenshot={png}", url],
+                   capture_output=True, timeout=90, creationflags=SEM_JANELA)
+    if not os.path.isfile(png) or os.path.getsize(png) < 5000:
+        raise RuntimeError("não consegui montar a imagem do ticket")
+    return png
+
+
 def imprimir_ticket_direto(tid, foto=False, placa=""):
     """Imprime o ticket na impressora da configuração (vazia = padrão do Windows)."""
     try:
-        chrome = chrome_exe()
-        if not chrome:
-            raise RuntimeError("Chrome não encontrado para montar o ticket")
-        pasta = os.path.join(BASE, "impressao")
-        os.makedirs(pasta, exist_ok=True)
-        png = os.path.join(pasta, f"ticket_{int(tid)}.png")
-        if os.path.exists(png):
-            os.remove(png)
-        url = (f"http://127.0.0.1:{int(CONFIG.get('porta', 8080))}/?img={time.time():.0f}"
-               f"#ticketimg={int(tid)}&foto={1 if foto else 0}")
         with IMPRESSAO_LOCK:
-            subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
-                            "--force-device-scale-factor=2", "--window-size=794,1123", "--virtual-time-budget=15000",
-                            f"--user-data-dir={os.path.join(BASE, 'chrome_impressao')}", f"--screenshot={png}", url],
-                           capture_output=True, timeout=90, creationflags=SEM_JANELA)
-            if not os.path.isfile(png) or os.path.getsize(png) < 5000:
-                raise RuntimeError("não consegui montar a imagem do ticket")
+            png = imagem_ticket(int(tid), foto)
             r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
                                 os.path.join(BASE, "imprimir_ticket.ps1"), "-Imagem", png,
                                 "-Impressora", CONFIG.get("impressora") or "",
@@ -710,15 +717,17 @@ def buscar_por_placa(placa):
 
 def ler_placa_camera():
     """Pede ao auxiliar a placa da imagem atual e procura o cadastro."""
-    corpo, _ = camera_get("/placa", 15)
-    leituras = json.loads(corpo).get("placas", [])
+    corpo, _ = camera_get("/placa?foto=1", 15)
+    resposta = json.loads(corpo)
+    leituras = resposta.get("placas", [])
     validas = [x for x in leituras if (x.get("confianca") or 0) >= 0.6
                and re.fullmatch(r"[A-Z]{3}\d[A-Z0-9]\d{2}", placa_padrao(x["texto"]))]
     if not validas:
         return {"placa": None, "leituras": leituras}
     melhor = max(validas, key=lambda x: x.get("confianca") or 0)
     r = dict(buscar_por_placa(melhor["texto"]), confianca=melhor.get("confianca"), leituras=leituras)
-    ULTIMA_PLACA.update(quando=time.time(), r=r)
+    foto = base64.b64decode(resposta["foto"]) if resposta.get("foto") else None
+    ULTIMA_PLACA.update(quando=time.time(), r=r, foto=foto)
     return r
 
 
@@ -728,8 +737,9 @@ def ler_placa_camera():
 # envia é a extensão "whatsapp_extensao" instalada no Chrome onde o WhatsApp Web
 # está conectado: ela pergunta aqui o que mandar e devolve o resultado.
 # --------------------------------------------------------------------------
-ULTIMA_PLACA = {"quando": 0, "r": None}
-WHATS = {"fila": [], "seq": 0, "visto": 0, "estado": None, "ultimo": None, "erro": None, "enviadas": 0}
+ULTIMA_PLACA = {"quando": 0, "r": None, "foto": None}
+WHATS = {"fila": [], "seq": 0, "visto": 0, "estado": None, "ultimo": None, "erro": None, "enviadas": 0,
+         "diag": False, "diag_resposta": None}
 WHATS_LOCK = threading.Lock()
 
 
@@ -738,17 +748,21 @@ def numero_whatsapp(n):
     return "55" + n if len(n) in (10, 11) else n  # DDD + número, sem o 55
 
 
-def enfileirar_whatsapp(numero, texto, placa=""):
+def enfileirar_whatsapp(numero, texto, placa="", arquivos=None):
+    """arquivos: [(nome, tipo, caminho)] — vão depois do texto (imagem do ticket, foto da câmera)."""
     with WHATS_LOCK:
         WHATS["seq"] += 1
         WHATS["fila"].append({"id": WHATS["seq"], "numero": numero_whatsapp(numero), "texto": texto,
-                              "placa": placa, "criado": time.time(), "entregue": 0})
+                              "placa": placa, "criado": time.time(), "entregue": 0, "arquivos": arquivos or []})
 
 
 def proximo_whatsapp(estado, so_estado=False):
     """A extensão pede a próxima mensagem (a cada 2 s, com o WhatsApp Web aberto)."""
     agora = time.time()
     WHATS.update(visto=agora, estado=estado)
+    if WHATS["diag"]:  # pedido de diagnóstico da tela do WhatsApp (não envia nada)
+        WHATS["diag"] = False
+        return {"diag": True}
     if so_estado:
         return {}
     with WHATS_LOCK:
@@ -759,8 +773,122 @@ def proximo_whatsapp(estado, so_estado=False):
         for m in WHATS["fila"]:
             if agora - m["entregue"] > 120:  # entregue e sem resposta em 2 min: oferece de novo
                 m["entregue"] = agora
-                return {k: m[k] for k in ("id", "numero", "texto")}
+                return dict({k: m[k] for k in ("id", "numero", "texto")}, arquivos=len(m["arquivos"]))
     return {}
+
+
+def arquivos_whatsapp(mid):
+    m = next((m for m in WHATS["fila"] if m["id"] == mid), None)
+    saida = []
+    for nome, tipo, caminho in (m or {}).get("arquivos", []):
+        with open(caminho, "rb") as f:
+            saida.append({"nome": nome, "tipo": tipo, "dados": base64.b64encode(f.read()).decode()})
+    return saida
+
+
+def telefone_valido(tel):
+    """Telefone do cadastro que dá para usar no WhatsApp (descarta 00000000000, 99999999999, sem DDD...)."""
+    n = re.sub(r"\D", "", str(tel or "")).lstrip("0")
+    if n.startswith("55") and len(n) in (12, 13):
+        n = n[2:]
+    if len(n) not in (10, 11) or len(set(n)) <= 2 or n[2:].startswith("0"):
+        return None
+    return n
+
+
+def texto_ticket(t, teste=False):
+    t = ticket_calculado(t)
+    linhas = [f"🧾 *Ticket de pesagem Nº {t['id']}* — {CONFIG.get('empresa') or 'BALANÇA TRANSTINO'}"]
+    if teste:
+        linhas.append("_(TESTE — esta pesagem não foi registrada)_")
+    linhas += ["", f"Placa: *{t.get('placa') or '-'}*"]
+    if t.get("motorista"):
+        linhas.append(f"Motorista: {t['motorista']}")
+    if t.get("empresa_nome"):
+        linhas.append(f"Empresa: {t['empresa_nome']}")
+    if t.get("item"):
+        linhas.append(f"Carga: {t['item']}")
+    if t.get("bruto") is not None:
+        linhas += [f"Bruto: {kg(t['bruto'])} kg", f"Tara: {kg(t['tara'])} kg", f"*Líquido: {kg(t['peso_liquido'])} kg*"]
+    if t.get("data_final"):
+        linhas.append(f"Data: {datetime.strptime(t['data_final'][:16], '%Y-%m-%d %H:%M'):%d/%m/%Y %H:%M}")
+    return "\n".join(linhas)
+
+
+def foto_da_placa(t):
+    """Foto do momento em que a câmera leu a placa deste ticket (ou, sem ela, a foto do encerramento)."""
+    u = ULTIMA_PLACA
+    if (u["foto"] and u["r"] and time.time() - u["quando"] < 3 * 3600
+            and chave_placa(u["r"]["placa"]) == chave_placa(t.get("placa") or "")):
+        os.makedirs(FOTOS_DIR, exist_ok=True)
+        caminho = os.path.join(FOTOS_DIR, f"placa_{t['id']}.jpg")
+        with open(caminho, "wb") as f:
+            f.write(u["foto"])
+        return caminho
+    caminho = os.path.join(FOTOS_DIR, f"placa_{t['id']}.jpg")
+    if os.path.isfile(caminho):
+        return caminho
+    if str(t["id"]).isdigit() and os.path.isfile(caminho_foto(t["id"])):
+        return caminho_foto(t["id"])
+    return None
+
+
+def ticket_teste(cliente_id):
+    """Ticket montado na hora com o cadastro e o peso atual — não é gravado no banco."""
+    with conectar() as con:
+        c = obter_cliente(con, cliente_id)
+    if not c:
+        return None
+    b = ler_balanca()
+    tara = num(c.get("tara")) or 0
+    bruto = max(tara, (b.get("peso") or 0) if b.get("ok") else 0)
+    agora = agora_local()
+    return ticket_calculado({
+        "id": f"teste-{cliente_id}", "status": "ENCERRADO", "emissor": CONFIG.get("empresa"), "cliente_id": cliente_id,
+        "placa": c.get("placa"), "motorista": c.get("motorista"), "transportadora": c.get("empresa"),
+        "empresa_nome": c.get("empresa_vinculada") or "", "item": c.get("descricao_carga") or "",
+        "peso_inicial": tara, "data_inicial": agora, "origem_inicial": "cadastro", "balanca_inicial": CONFIG.get("numero_balanca"),
+        "peso_final": bruto, "data_final": agora, "balanca_final": CONFIG.get("numero_balanca"), "operador_final": "TESTE",
+        "local_descarga": "", "observacao": "TICKET DE TESTE — pesagem não registrada", "pagador": None})
+
+
+def enviar_ticket_whatsapp(tid, teste_cliente=None, forcar=False):
+    """Depois de encerrar a pesagem: manda o ticket para o telefone do cadastro (se tiver um válido)."""
+    try:
+        if not forcar and not (CONFIG.get("whatsapp") or {}).get("enviar_ticket", True):
+            return {"erro": "Envio do ticket pelo WhatsApp desligado nas configurações."}
+        if teste_cliente:
+            t = ticket_teste(teste_cliente)
+        else:
+            with conectar() as con:
+                t = obter_ticket(con, tid)
+        if not t or t.get("status") != "ENCERRADO":
+            return {"erro": "Ticket não encontrado ou não encerrado."}
+        with conectar() as con:
+            c = obter_cliente(con, t["cliente_id"]) if t.get("cliente_id") else None
+        numero = telefone_valido((c or {}).get("telefone"))
+        if not numero:
+            return {"erro": f"O cadastro {'da placa ' + t['placa'] if t.get('placa') else ''} não tem telefone válido."}
+        with IMPRESSAO_LOCK:
+            png = imagem_ticket(t["id"], False, 900)
+            os.makedirs(FOTOS_DIR, exist_ok=True)
+            copia = os.path.join(FOTOS_DIR, f"whatsapp_ticket_{t['id']}.png")
+            shutil.copyfile(png, copia)
+        arquivos = [(f"ticket_{t['id']}.png", "image/png", copia)]
+        foto = foto_da_placa(t)
+        if not foto and teste_cliente and CONFIG["camera"].get("ativo"):
+            corpo, _ = camera_get("/foto.jpg?w=1280&idade=30", 6)
+            foto = os.path.join(FOTOS_DIR, f"placa_{t['id']}.jpg")
+            os.makedirs(FOTOS_DIR, exist_ok=True)
+            with open(foto, "wb") as f:
+                f.write(corpo)
+        if foto:
+            arquivos.append((f"camera_{t['id']}.jpg", "image/jpeg", foto))
+        enfileirar_whatsapp(numero, texto_ticket(t, bool(teste_cliente)), t.get("placa") or "", arquivos)
+        return {"ok": True, "numero": numero, "arquivos": len(arquivos)}
+    except Exception as e:  # noqa: BLE001
+        registrar_falha("whatsapp", f"Ticket {tid or teste_cliente}: não montei o envio pelo WhatsApp: {e}")
+        return {"erro": str(e)}
 
 
 def resultado_whatsapp(d):
@@ -1044,7 +1172,7 @@ def ticket_calculado(t):
     else:
         t["diferenca_origem"] = 0
         t["diferenca_pct"] = 0
-    if t.get("id"):
+    if str(t.get("id") or "").isdigit():
         t["foto"] = os.path.isfile(caminho_foto(t["id"]))
     return t
 
@@ -2385,9 +2513,18 @@ class Handler(BaseHTTPRequestHandler):
             if r[:1] == ["whatsapp"]:
                 if r[1:] == ["status"]:
                     return self._json(status_whatsapp())
-                if r[1:] in (["proximo"], ["resultado"]):
+                if r[1:] == ["diag"]:  # diagnóstico da tela do WhatsApp Web (para ajustar a extensão)
+                    if metodo == "POST" and not self.headers.get("X-Espelho"):
+                        WHATS["diag_resposta"] = self._corpo()
+                        return self._json({"ok": True})
+                    if q.get("pedir"):
+                        WHATS.update(diag=True, diag_resposta=None)
+                    return self._json(WHATS["diag_resposta"] or {})
+                if r[1:] in (["proximo"], ["resultado"], ["arquivos"]):
                     if self.headers.get("X-Espelho"):  # só a extensão deste computador
                         return self._json({"erro": "Só no computador da balança."}, 403)
+                    if r[1:] == ["arquivos"]:
+                        return self._json(arquivos_whatsapp(int(q.get("id") or 0)))
                     if r[1:] == ["proximo"]:
                         return self._json(proximo_whatsapp(q.get("estado", ""), bool(q.get("so_estado"))))
                     if metodo == "POST":
@@ -2529,8 +2666,18 @@ class Handler(BaseHTTPRequestHandler):
                     t = salvar_ticket(d)
                     if d.get("encerrar") and guardar_foto_ticket(t["id"]):
                         t["foto"] = True
+                    if d.get("encerrar"):
+                        threading.Thread(target=enviar_ticket_whatsapp, args=(t["id"],), daemon=True).start()
                     return self._json(t)
+                if r[1] == "teste":  # ticket de teste de um cadastro (não gravado)
+                    cid = int(q.get("cliente") or 0)
+                    if metodo == "POST":
+                        return self._json(enviar_ticket_whatsapp(None, cid, forcar=True))
+                    t = ticket_teste(cid)
+                    return self._json(t, 200 if t else 404)
                 tid = int(r[1])
+                if len(r) == 3 and r[2] == "whatsapp" and metodo == "POST":
+                    return self._json(enviar_ticket_whatsapp(tid, forcar=True))
                 if len(r) == 3 and r[2] == "imprimir" and metodo == "POST":
                     d = self._corpo()
                     return self._json(imprimir_ticket_direto(tid, bool(d.get("foto")), d.get("placa", "")))
@@ -2556,6 +2703,8 @@ class Handler(BaseHTTPRequestHandler):
                     t = salvar_ticket(d, tid)
                     if d.get("encerrar") and not t.get("foto") and guardar_foto_ticket(tid):
                         t["foto"] = True
+                    if d.get("encerrar"):
+                        threading.Thread(target=enviar_ticket_whatsapp, args=(tid,), daemon=True).start()
                     return self._json(t)
                 if metodo == "DELETE":
                     return self._json(excluir_ticket(tid))
