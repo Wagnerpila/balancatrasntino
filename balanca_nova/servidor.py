@@ -30,6 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 BASE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE, "config.json")
 STATIC_DIR = os.path.join(BASE, "static")
+FOTOS_DIR = os.path.join(BASE, "fotos")  # foto da câmera de cada ticket encerrado (fotos/ticket_<id>.jpg)
 
 DEFAULT_CONFIG = {
     "porta": 8080,
@@ -38,6 +39,7 @@ DEFAULT_CONFIG = {
     "balanca_url": "http://127.0.0.1:80/peso/?fmt=1",
     "numero_balanca": 1,
     "vias_impressao": 2,
+    "pesagem_unica": True,
     "registrar_no_historico_antigo": True,
     "abrir_navegador": True,
     "chrome_impressao_direta": False,
@@ -52,6 +54,18 @@ DEFAULT_CONFIG = {
         "pasta": "backups",
         "intervalo_horas": 6,
         "manter": 60,
+    },
+    "camera": {
+        "ativo": False,
+        "url": "rtsp://192.168.100.29:554/",
+        "usuario": "admin",
+        "senha": "",
+        "peso_minimo": 100,
+        "ler_placa": True,
+        "pesagem_automatica": True,
+        "imprimir_automatico": False,
+        "segundos_estavel": 3,
+        "porta_auxiliar": 8092,
     },
 }
 
@@ -487,6 +501,120 @@ def ler_balanca():
 
 
 # --------------------------------------------------------------------------
+# Câmera da balança + leitura de placa
+#
+# O vídeo (RTSP) e a leitura de placa (fast-alpr, gratuito e local) rodam num
+# programa auxiliar (camera_lpr.py) com Python próprio em lpr_venv/, porque
+# precisam de OpenCV/ONNX. Este servidor continua só com a biblioteca padrão:
+# ele inicia o auxiliar e repassa a foto e a placa lida para a tela.
+# --------------------------------------------------------------------------
+CAMERA_PY = os.path.join(BASE, "lpr_venv", "Scripts", "python.exe")
+CAMERA_SCRIPT = os.path.join(BASE, "camera_lpr.py")
+CAMERA = {"proc": None, "lock": threading.Lock()}
+# letras que o OCR confunde com números (e vice-versa) em cada posição da placa
+PARA_LETRA = {"0": "O", "1": "I", "2": "Z", "4": "A", "5": "S", "6": "G", "7": "T", "8": "B"}
+PARA_NUMERO = {"O": "0", "Q": "0", "D": "0", "I": "1", "L": "1", "Z": "2", "A": "4", "S": "5", "G": "6", "T": "7", "B": "8"}
+
+
+def camera_url_base():
+    return f"http://127.0.0.1:{int(CONFIG['camera'].get('porta_auxiliar') or 8092)}"
+
+
+def parar_camera():
+    with CAMERA["lock"]:
+        p = CAMERA["proc"]
+        CAMERA["proc"] = None
+    if p and p.poll() is None:
+        if os.name == "nt":  # o python.exe do venv abre outro processo: fecha os dois
+            subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True,
+                           creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            p.terminate()
+        try:
+            p.wait(5)
+        except subprocess.TimeoutExpired:
+            p.kill()
+
+
+def iniciar_camera():
+    """(Re)inicia o programa auxiliar da câmera conforme o config.json."""
+    parar_camera()
+    if not CONFIG["camera"].get("ativo"):
+        return
+    if not os.path.isfile(CAMERA_PY):
+        print("Câmera: leitor de placas não instalado (pasta lpr_venv). Rode INSTALAR_CAMERA.bat.")
+        return
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    with CAMERA["lock"]:
+        CAMERA["proc"] = subprocess.Popen([CAMERA_PY, CAMERA_SCRIPT, "--config", CONFIG_PATH, "--pai", str(os.getpid())], cwd=BASE,
+                                          creationflags=flags)
+
+
+def camera_get(caminho, timeout=4):
+    with urllib.request.urlopen(camera_url_base() + caminho, timeout=timeout) as r:
+        return r.read(), r.headers.get("Content-Type", "application/octet-stream")
+
+
+def camera_status():
+    if not CONFIG["camera"].get("ativo"):
+        return {"ativo": False}
+    if not os.path.isfile(CAMERA_PY):
+        return {"ativo": True, "ok": False, "mensagem": "Leitor de placas não instalado (rode INSTALAR_CAMERA.bat)"}
+    try:
+        corpo, _ = camera_get("/status", 2)
+        return dict(json.loads(corpo), ativo=True)
+    except Exception as e:  # noqa: BLE001
+        p = CAMERA["proc"]
+        if p is None or p.poll() is not None:
+            iniciar_camera()  # o auxiliar caiu: tenta de novo
+        return {"ativo": True, "ok": False, "mensagem": f"Programa da câmera iniciando… ({e})"}
+
+
+def placa_padrao(texto):
+    """Ajusta o texto lido pelo OCR ao formato de placa brasileira: AAA9999 (antiga) ou AAA9A99 (Mercosul)."""
+    t = normalizar(texto)
+    if len(t) != 7:
+        return t
+    c = list(t)
+    for i in (0, 1, 2):
+        c[i] = PARA_LETRA.get(c[i], c[i])
+    for i in (3, 5, 6):
+        c[i] = PARA_NUMERO.get(c[i], c[i])
+    return "".join(c)
+
+
+def chave_placa(placa):
+    """Mesma chave para a placa antiga e a Mercosul (APZ9171 = APZ9B71): 5º caractere letra A-J vira número."""
+    p = placa_padrao(placa)
+    if len(p) == 7 and "A" <= p[4] <= "J":
+        p = p[:4] + str(ord(p[4]) - ord("A")) + p[5:]
+    return p
+
+
+def buscar_por_placa(placa):
+    chave = chave_placa(placa)
+    with conectar() as con:
+        todos = contar_por_empresa(todos_clientes(con))
+        abertos = con.execute("SELECT id, placa, cliente_id FROM nova_ticket WHERE status='ABERTO' ORDER BY id DESC").fetchall()
+    clientes = [dict(c, confianca=95) for c in todos if chave_placa(c["placa"]) == chave]
+    ids = {c["id"] for c in clientes}
+    ticket = next((t["id"] for t in abertos if chave_placa(t["placa"]) == chave or t["cliente_id"] in ids), None)
+    return {"placa": placa_padrao(placa), "clientes": clientes, "ticket_aberto": ticket}
+
+
+def ler_placa_camera():
+    """Pede ao auxiliar a placa da imagem atual e procura o cadastro."""
+    corpo, _ = camera_get("/placa", 15)
+    leituras = json.loads(corpo).get("placas", [])
+    validas = [x for x in leituras if (x.get("confianca") or 0) >= 0.6
+               and re.fullmatch(r"[A-Z]{3}\d[A-Z0-9]\d{2}", placa_padrao(x["texto"]))]
+    if not validas:
+        return {"placa": None, "leituras": leituras}
+    melhor = max(validas, key=lambda x: x.get("confianca") or 0)
+    return dict(buscar_por_placa(melhor["texto"]), confianca=melhor.get("confianca"), leituras=leituras)
+
+
+# --------------------------------------------------------------------------
 # InControl (leitura de tags) - API https://localhost:4441/v1/
 # --------------------------------------------------------------------------
 class InControl:
@@ -607,7 +735,32 @@ def ticket_calculado(t):
     else:
         t["diferenca_origem"] = 0
         t["diferenca_pct"] = 0
+    if t.get("id"):
+        t["foto"] = os.path.isfile(caminho_foto(t["id"]))
     return t
+
+
+def caminho_foto(tid):
+    return os.path.join(FOTOS_DIR, f"ticket_{int(tid)}.jpg")
+
+
+def guardar_foto_ticket(tid):
+    """Guarda a imagem atual da câmera (pequena) para sair no ticket. Sem câmera, não faz nada."""
+    if not CONFIG["camera"].get("ativo"):
+        return False
+    for tentativa in range(3):
+        try:
+            corpo, _ = camera_get("/foto.jpg?w=640&idade=30", 4)
+            break
+        except (urllib.error.URLError, OSError) as e:
+            print(f"Foto do ticket {tid}: câmera não respondeu ({e}), tentativa {tentativa + 1}")
+            time.sleep(1)
+    else:
+        return False
+    os.makedirs(FOTOS_DIR, exist_ok=True)
+    with open(caminho_foto(tid), "wb") as f:
+        f.write(corpo)
+    return True
 
 
 def obter_ticket(con, tid):
@@ -762,6 +915,39 @@ def historico_antigo(q="", limite=200):
         r["data_local"] = utc_para_local(r.get("data_pesagem") or r.get("cadastrado_em"))
         r["ticket_id"] = ligados.get(r["id"])  # registro gerado por um ticket do sistema novo
     return rows
+
+
+def historico_cobranca(q, inicio="", fim=""):
+    """
+    Pesagens do histórico antigo de uma empresa ou motorista, para escolher e cobrar.
+    A empresa vem do cadastro da placa (inclusive cadastros ocultos/unificados).
+    """
+    alvo = normalizar(q)
+    if len(alvo) < 2:
+        raise ValueError("Digite o nome da empresa, do motorista ou a placa.")
+    with conectar() as con:
+        clientes = todos_clientes(con, inativos=True)
+        rows = [dict(r) for r in con.execute("SELECT * FROM pesagem_pesagem ORDER BY id")]
+    por_placa = {}
+    for c in sorted(clientes, key=lambda c: c["inativo"]):  # o cadastro ativo tem preferência
+        por_placa.setdefault(chave_placa(c["placa"]), c)
+    achados = []
+    for r in rows:
+        data = utc_para_local(r.get("data_pesagem") or r.get("cadastrado_em")) or ""
+        if (inicio and data[:10] < inicio) or (fim and data[:10] > fim):
+            continue
+        c = por_placa.get(chave_placa(r["placa"])) or {}
+        empresa = c.get("empresa") or ""
+        motorista = c.get("motorista") or r.get("user_name") or ""
+        if not any(alvo in normalizar(v) for v in (r.get("user_name"), empresa, motorista, c.get("nome")))                 and chave_placa(r["placa"]) != chave_placa(q):
+            continue
+        achados.append({"id": r["id"], "data": data, "placa": r["placa"], "nome": r.get("user_name") or "",
+                        "motorista": motorista, "empresa": empresa, "empresa_id": c.get("empresa_id"),
+                        "modelo": r.get("modelo") or "", "tara": r.get("peso_maximo"), "peso_final": r.get("peso_final"),
+                        "liquido": r.get("peso_liquido")})
+    achados.sort(key=lambda x: x["data"], reverse=True)
+    empresas = sorted({x["empresa"] for x in achados if x["empresa"]})
+    return {"q": q, "inicio": inicio, "fim": fim, "pesagens": achados, "empresas": empresas}
 
 
 def relatorio_pesagens(inicio, fim, empresa="", q="", motorista="", pagador=""):
@@ -1544,7 +1730,44 @@ def atualizar_fatura(fid, dados):
                         (dados["status"], agora_local() if dados["status"] == "PAGA" else None, fid))
         if "observacao" in dados:
             con.execute("UPDATE nova_fatura SET observacao = ? WHERE id = ?", (str(dados["observacao"] or "").strip(), fid))
+        if "itens" in dados:
+            editar_itens_fatura(con, fid, dados["itens"])
     return obter_fatura(fid)
+
+
+def editar_itens_fatura(con, fid, itens):
+    """
+    Edição da fatura: `itens` = [{ref, valor}] com o que FICA na fatura e o valor de cada um.
+    O que sair volta para o "a faturar". Totais e resumo por motorista são recalculados.
+    """
+    novos = {str(i["ref"]): num(i.get("valor")) or 0.0 for i in itens or []}
+    if not novos:
+        raise ValueError("A fatura precisa ter pelo menos um item. Para tirar tudo, exclua a fatura.")
+    d = json.loads(con.execute("SELECT detalhes FROM nova_fatura WHERE id = ?", (fid,)).fetchone()[0] or "{}")
+    linhas = [dict(x, valor=round(novos[x["ref"]], 2)) for x in d.get("linhas", []) if x["ref"] in novos]
+    mensal = [dict(m, valor=round(novos[m["ref"]], 2)) for m in d.get("mensalidades", []) if m["ref"] in novos]
+    antes = {x["ref"]: x["valor"] for x in d.get("linhas", [])}
+    for x in linhas:
+        if abs(x["valor"] - (antes.get(x["ref"]) or 0)) > 0.004:
+            x["regra"] = "manual"  # valor mudado na edição da fatura
+    motoristas = {}
+    for x in linhas:
+        m = motoristas.setdefault(normalizar(x.get("motorista")) or "-", {"nome": x.get("motorista") or "—", "placas": [],
+                                                                       "pesagens": 0, "liquido": 0.0, "valor": 0.0})
+        if x.get("placa") and x["placa"] not in m["placas"]:
+            m["placas"].append(x["placa"])
+        m["pesagens"] += 1
+        m["liquido"] += x.get("liquido") or 0
+        m["valor"] += x["valor"]
+    d.update(linhas=linhas, mensalidades=mensal, motoristas=sorted(motoristas.values(), key=lambda m: -m["liquido"]))
+    valor = round(sum(x["valor"] for x in linhas) + sum(m["valor"] for m in mensal), 2)
+    con.execute("UPDATE nova_fatura SET detalhes = ?, valor = ?, pesagens = ?, liquido = ? WHERE id = ?",
+                (json.dumps(d, ensure_ascii=False, default=str), valor, len(linhas),
+                 sum(x.get("liquido") or 0 for x in linhas), fid))
+    con.execute("DELETE FROM nova_fatura_item WHERE fatura_id = ?", (fid,))
+    con.executemany("INSERT INTO nova_fatura_item (fatura_id, ref, descricao, valor) VALUES (?, ?, ?, ?)",
+                    [(fid, x["ref"], f"Pesagem {x.get('numero')} {x.get('placa')}", x["valor"]) for x in linhas]
+                    + [(fid, m["ref"], f"Mensalidade {m.get('mes')}", m["valor"]) for m in mensal])
 
 
 def excluir_fatura(fid):
@@ -1731,6 +1954,8 @@ TIPOS = {".html": "text/html; charset=utf-8", ".js": "application/javascript; ch
 def config_publica():
     c = json.loads(json.dumps(CONFIG))
     c["incontrol"]["senha"] = "********" if c["incontrol"].get("senha") else ""
+    c["camera"]["senha"] = "********" if c["camera"].get("senha") else ""
+    c["camera"]["instalado"] = os.path.isfile(CAMERA_PY)
     c["banco_absoluto"] = caminho_banco()
     return c
 
@@ -1739,7 +1964,7 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "PesagemTranstino/1.0"
 
     def log_message(self, fmt, *args):
-        if "/api/peso" in (args[0] if args else "") or "/api/tag/ultima" in (args[0] if args else ""):
+        if any(x in str(args[0] if args else "") for x in ("/api/peso", "/api/tag/ultima", "/api/camera/")):
             return
         sys.stdout.write("[%s] %s\n" % (time.strftime("%H:%M:%S"), fmt % args))
 
@@ -1811,6 +2036,30 @@ class Handler(BaseHTTPRequestHandler):
             if r == ["peso"]:
                 return self._json(ler_balanca())
 
+            if r[:1] == ["camera"]:
+                if r[1:] == ["status"]:
+                    return self._json(camera_status())
+                if r[1:] == ["placa"]:
+                    try:
+                        return self._json(ler_placa_camera())
+                    except (urllib.error.URLError, OSError) as e:
+                        return self._json({"placa": None, "erro": f"Câmera indisponível: {e}"})
+                if r[1:] == ["buscar"]:
+                    return self._json(buscar_por_placa(q.get("placa", "")))
+                if r[1:] == ["foto.jpg"]:
+                    try:
+                        body, tipo = camera_get("/foto.jpg", 4)
+                    except (urllib.error.URLError, OSError):
+                        self.send_error(503)
+                        return
+                    self.send_response(200)
+                    self.send_header("Content-Type", tipo)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+
             if r[:1] == ["config"]:
                 if metodo == "POST":
                     novo = self._corpo()
@@ -1827,6 +2076,8 @@ class Handler(BaseHTTPRequestHandler):
                             CONFIG[k] = v
                     salvar_config(CONFIG)
                     INCONTROL.token = None
+                    if "camera" in novo:
+                        threading.Thread(target=iniciar_camera, daemon=True).start()
                 return self._json(config_publica())
 
             if r[:1] == ["clientes"]:
@@ -1932,15 +2183,35 @@ class Handler(BaseHTTPRequestHandler):
                 if len(r) == 1 and metodo == "GET":
                     return self._json(listar_tickets(q.get("status"), q.get("q", "")))
                 if len(r) == 1 and metodo == "POST":
-                    return self._json(salvar_ticket(self._corpo()))
+                    d = self._corpo()
+                    t = salvar_ticket(d)
+                    if d.get("encerrar") and guardar_foto_ticket(t["id"]):
+                        t["foto"] = True
+                    return self._json(t)
                 tid = int(r[1])
+                if len(r) == 3 and r[2] == "foto.jpg":
+                    if not os.path.isfile(caminho_foto(tid)):
+                        self.send_error(404)
+                        return
+                    with open(caminho_foto(tid), "rb") as f:
+                        body = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/jpeg")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 if len(r) == 3 and r[2] == "cancelar":
                     with conectar() as con:
                         con.execute("UPDATE nova_ticket SET status='CANCELADO', atualizado_em=? WHERE id=? AND status='ABERTO'",
                                     (agora_local(), tid))
                         return self._json(obter_ticket(con, tid))
                 if metodo == "PUT":
-                    return self._json(salvar_ticket(self._corpo(), tid))
+                    d = self._corpo()
+                    t = salvar_ticket(d, tid)
+                    if d.get("encerrar") and not t.get("foto") and guardar_foto_ticket(tid):
+                        t["foto"] = True
+                    return self._json(t)
                 if metodo == "DELETE":
                     return self._json(excluir_ticket(tid))
                 with conectar() as con:
@@ -1949,6 +2220,8 @@ class Handler(BaseHTTPRequestHandler):
 
             if r == ["historico"]:
                 return self._json(historico_antigo(q.get("q", "")))
+            if r == ["historico", "cobranca"]:
+                return self._json(historico_cobranca(q.get("q", ""), q.get("inicio", ""), q.get("fim", "")))
             if r == ["dashboard"]:
                 return self._json(dashboard(q.get("dias", 30)))
 
@@ -2032,12 +2305,15 @@ def main():
     print("  Para encerrar, feche esta janela.")
     print("=" * 60)
     threading.Thread(target=agendador_backup, daemon=True).start()
+    iniciar_camera()
     if CONFIG.get("abrir_navegador", True):
         threading.Timer(1.0, abrir_navegador, args=(url,)).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        parar_camera()
 
 
 if __name__ == "__main__":

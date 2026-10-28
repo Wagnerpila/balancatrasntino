@@ -45,6 +45,17 @@ main{padding:20px;max-width:1500px;margin:0 auto}
 .scale .valor small{font-size:22px;color:#5fbf75;margin-left:6px}
 .scale.off .valor{color:#4b5b50;text-shadow:none}
 .scale .st{font-size:12px;color:#9fd3ab;min-height:18px}
+/* câmera da balança */
+.cam-box{margin-top:20px;background:#000;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;position:relative}
+.cam-box img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#0b0f14}
+.cam-box .cam-top{position:absolute;top:8px;left:8px;right:8px;display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+.cam-box .cam-top .spacer{flex:1}
+.cam-box .placa-lida{background:#fff;color:#111;border:3px solid #1d4ed8;border-radius:6px;padding:2px 12px;font:800 22px/1.2 Consolas,monospace;letter-spacing:2px}
+.cam-box .cam-tag{background:rgba(0,0,0,.65);color:#fff;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600}
+.cam-box .cam-msg{padding:10px 12px;font-size:13px;color:#cbd5e1;background:#0b0f14;border-top:1px solid #1f2937;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cam-box .cam-msg .spacer{flex:1}
+.cam-box.auto .cam-msg{background:#1e3a5f;color:#fff}
+.cam-box .contagem{font:800 20px Consolas,monospace;color:#ffd77a}
 .estavel{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:1px}
 .estavel.s{background:#1e5a30;color:#9effb5}.estavel.i{background:#5a4a1e;color:#ffd77a}.estavel.x{background:#5a1e1e;color:#ffb3b3}
 .row{display:flex;gap:10px;flex-wrap:wrap}
@@ -148,6 +159,8 @@ code{background:var(--bg2);padding:2px 6px;border-radius:6px}
 .tkp .local{border:1px solid #000;padding:5px 7px;margin-top:14px;font-size:13px;width:80%;min-height:24px}
 .tkp .rod{font-size:10px;margin-top:8px;color:#333}
 .tkp + .tkp{page-break-before:always}
+.tkp .foto{margin-top:12px;display:flex;gap:10px;align-items:flex-end;font-size:10px;color:#333}
+.tkp .foto img{width:75mm;border:1px solid #000;display:block}
 .periodos{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 /* ===== DASHBOARD ===== */
 .dash{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--good:#0ca30c;--crit:#d03b3b;--warnc:#fab219;
@@ -208,6 +221,15 @@ code{background:var(--bg2);padding:2px 6px;border-radius:6px}
 .qual .tx{flex:1;font-size:13px;min-width:0}.qual .tx small{display:block;color:var(--mut);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .patio-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .patio-item:last-child{border-bottom:0}.patio-item b{font-family:Consolas,monospace;letter-spacing:1px}
+/* caminhões no pátio (tela de pesagem) */
+.patio-pes{border-color:#5a4a1e}
+.patio-pes .pp{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:.15s}
+.patio-pes .pp:last-child{margin-bottom:0}
+.patio-pes .pp:hover{border-color:var(--mut)}
+.patio-pes .pp.sel{border-color:var(--blue);background:rgba(88,166,255,.08)}
+.patio-pes .pp .info{flex:1;min-width:0}
+.patio-pes .pp .pl{font:800 17px Consolas,monospace;letter-spacing:1px}
+.patio-pes .pp small{display:block;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rel-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:1000px){.rel-grid{grid-template-columns:1fr}}
 .barra{height:8px;border-radius:99px;background:var(--acc2);min-width:2px}
@@ -296,6 +318,18 @@ tr.oculto td{opacity:.55}
         <div class="valor"><span id="pesoAtual">-----</span><small>kg</small></div>
         <div class="st"><span class="estavel x" id="estavel">SEM SINAL</span> <span id="balMsg"></span></div>
       </div>
+      <div class="cam-box" id="camBox" hidden>
+        <img id="camImg" alt="Câmera da balança">
+        <div class="cam-top"><span class="cam-tag" id="camTag">📷 Câmera</span><span class="spacer"></span><span class="placa-lida" id="camPlaca" hidden></span></div>
+        <div class="cam-msg"><span id="camMsg">Aguardando caminhão…</span><span class="spacer"></span>
+          <span class="contagem" id="camConta" hidden></span>
+          <button class="btn sm" id="camLer" title="Ler a placa de novo">🔍 Ler placa</button>
+          <button class="btn sm d" id="camCancelar" hidden>✋ Cancelar automático</button></div>
+      </div>
+      <div class="card patio-pes" id="patioPes" style="margin-top:20px" hidden>
+        <h3>⏳ No pátio — falta a 2ª pesagem <span class="pill" id="patioN"></span></h3>
+        <div id="patioLista"></div>
+      </div>
       <div class="card" style="margin-top:20px">
         <h3>🏷️ Identificação por tag</h3>
         <div class="tagbox" id="tagbox">
@@ -361,7 +395,7 @@ tr.oculto td{opacity:.55}
 
       <div class="row">
         <div class="secao">
-          <div class="tit"><span class="n">2</span> Pesagem inicial</div>
+          <div class="tit"><span class="n">2</span> <span id="titIni">Pesagem inicial</span></div>
           <div class="pesorow">
             <input class="peso" id="pesoInicial" inputmode="numeric" placeholder="0">
             <button class="btn b" id="capIni" title="Capturar da balança">⚖ Balança</button>
@@ -372,7 +406,7 @@ tr.oculto td{opacity:.55}
           <div class="meta" id="metaIni">Data/hora e operador registrados ao salvar.</div>
         </div>
         <div class="secao">
-          <div class="tit"><span class="n">3</span> Pesagem final</div>
+          <div class="tit"><span class="n">3</span> <span id="titFin">Pesagem final</span></div>
           <div class="pesorow">
             <input class="peso" id="pesoFinal" inputmode="numeric" placeholder="0">
             <button class="btn b" id="capFin" title="Capturar da balança">⚖ Balança</button>
@@ -402,6 +436,8 @@ tr.oculto td{opacity:.55}
         <button class="btn d" id="btnLimpar">Limpar</button>
         <button class="btn d" id="btnCancelar" hidden>Cancelar ticket</button>
         <button class="btn" id="btnAbrir">💾 Salvar 1ª pesagem (ticket aberto)</button>
+        <label style="display:flex;gap:6px;align-items:center;margin:0;font-size:13px" title="A foto da câmera só sai no ticket se marcar aqui">
+          <input type="checkbox" class="ck" id="impFoto"> 📷 Imprimir com a foto</label>
         <button class="btn p" id="btnEncerrar">🖨️ Encerrar e imprimir</button>
       </div>
     </div>
@@ -430,6 +466,30 @@ tr.oculto td{opacity:.55}
 
 <!-- ================= HISTÓRICO ANTIGO ================= -->
 <section class="tab" id="tab-historico">
+  <div class="card" id="cardCob">
+    <h3>💲 Cobrança pelo histórico — pesagens de uma empresa ou motorista</h3>
+    <div class="row" style="align-items:flex-end">
+      <div class="f" style="flex:3"><label>Empresa, motorista ou placa</label><input id="cobQ" list="dlEmpresas" placeholder="Ex.: WMDIGITAL, DOMINGOS, APZ9171"></div>
+      <div class="f"><label>De</label><input type="date" id="cobIni"></div>
+      <div class="f"><label>Até</label><input type="date" id="cobFim"></div>
+      <div class="f"><label>Cobrar</label><select id="cobTipo"><option value="pesagem">Por pesagem</option><option value="tonelada">Por tonelada</option></select></div>
+      <div class="f"><label>Valor (R$)</label><input id="cobValor" inputmode="decimal" placeholder="0,00"></div>
+      <div class="f" style="flex:0"><button class="btn p" id="cobAbrir">Abrir pesagens</button></div>
+    </div>
+    <div id="cobRes" hidden>
+      <div class="kpis" id="cobKpis" style="margin:4px 0 10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <button class="btn sm" id="cobTodas">Marcar todas</button>
+        <button class="btn sm" id="cobNenhuma">Desmarcar todas</button>
+        <span style="flex:1"></span>
+        <button class="btn p" id="cobPdf">📄 Gerar PDF de cobrança</button>
+      </div>
+      <div class="tbl-wrap" style="max-height:50vh"><table>
+        <thead><tr><th><input type="checkbox" class="ck" id="cobCk"></th><th>ID</th><th>Data</th><th>Placa</th><th>Nome no histórico</th><th>Motorista</th><th>Empresa</th><th>Líquido (kg)</th><th>Valor</th></tr></thead>
+        <tbody id="tbCob"></tbody></table></div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">Na janela de impressão, escolha <b>"Salvar como PDF"</b> como impressora.</p>
+    </div>
+  </div>
   <div class="card">
     <h3>📚 Pesagens do sistema antigo (pesagem_pesagem) <span class="spacer"></span>
       <input id="buscaHist" placeholder="Buscar placa ou nome…" style="width:260px"></h3>
@@ -644,6 +704,7 @@ tr.oculto td{opacity:.55}
         <div class="f"><label>Vias por impressão</label><input id="cfgVias" type="number" min="1" max="5"></div>
       </div>
       <div class="f"><label>URL da API da balança</label><input id="cfgBalUrl"></div>
+      <div class="f"><label><input type="checkbox" id="cfgUnica" style="width:auto"> Pesagem única: TARA do cadastro + peso da balança já encerra o ticket (sem 2ª pesagem)</label></div>
       <div class="f"><label><input type="checkbox" id="cfgLegado" style="width:auto"> Gravar tickets encerrados também no histórico do sistema antigo</label></div>
       <div class="f"><label><input type="checkbox" id="cfgKiosk" style="width:auto"> Impressão direta sem janela (abre Chrome com --kiosk-printing; vale ao reiniciar)</label></div>
       <p class="muted" style="font-size:12px">Banco de dados: <code id="cfgBanco"></code></p>
@@ -659,6 +720,25 @@ tr.oculto td{opacity:.55}
       <button class="btn sm" id="incTeste">Testar leitura</button>
       <pre id="incDebug" style="white-space:pre-wrap;font-size:11px;max-height:220px;overflow:auto;background:var(--bg2);padding:10px;border-radius:8px;margin-top:10px" hidden></pre>
     </div>
+  </div>
+  <div class="card" id="cardCamera">
+    <h3>📷 Câmera da balança e leitura de placa</h3>
+    <p class="muted" style="font-size:12px;margin:0 0 10px" id="camCfgInfo"></p>
+    <div class="f"><label><input type="checkbox" id="camAtivo" style="width:auto"> Usar a câmera</label></div>
+    <div class="row">
+      <div class="f" style="flex:3"><label>Endereço do vídeo (RTSP)</label><input id="camUrl" placeholder="rtsp://192.168.100.29:554/..."></div>
+      <div class="f"><label>Usuário</label><input id="camUser"></div>
+      <div class="f"><label>Senha</label><input id="camSenha" type="password"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Mostrar a câmera acima de (kg)</label><input id="camMin" type="number" min="0"></div>
+      <div class="f"><label>Peso estável por (segundos)</label><input id="camSeg" type="number" min="1" max="30"></div>
+    </div>
+    <div class="f"><label><input type="checkbox" id="camLerPlaca" style="width:auto"> Ler a placa e puxar o cadastro sozinho</label></div>
+    <div class="f"><label><input type="checkbox" id="camAuto" style="width:auto"> Pesagem automática: com a placa cadastrada e o peso ESTÁVEL, captura o peso e encerra a pesagem sozinho. Dá 5 segundos para cancelar.</label></div>
+    <div class="f"><label><input type="checkbox" id="camImp" style="width:auto"> Imprimir o ticket na pesagem automática</label></div>
+    <button class="btn sm" id="camTeste">Testar câmera</button>
+    <pre id="camDebug" style="white-space:pre-wrap;font-size:11px;max-height:220px;overflow:auto;background:var(--bg2);padding:10px;border-radius:8px;margin-top:10px" hidden></pre>
   </div>
   <div class="card" id="cardBackup">
     <h3>💾 Backup automático do banco <span class="spacer"></span>
@@ -831,6 +911,30 @@ tr.oculto td{opacity:.55}
   </div>
 </div>
 
+<!-- modal editar fatura -->
+<div class="modal-bg" id="modalFat">
+  <div class="modal" style="width:min(980px,100%)">
+    <h2 id="mfTitulo">Editar fatura</h2>
+    <p class="muted" style="margin:-8px 0 14px" id="mfInfo"></p>
+    <div class="row">
+      <div class="f"><label>Situação</label><select id="mf_status"><option value="ABERTA">Em aberto</option><option value="PAGA">Paga</option></select></div>
+      <div class="f" style="flex:3"><label>Observação (sai na fatura)</label><input id="mf_observacao"></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin:0 0 8px">Desmarque o que não deve ser cobrado nesta fatura — volta para o "a faturar". Os valores podem ser alterados.</p>
+    <div class="tbl-wrap" style="max-height:45vh"><table>
+      <thead><tr><th><input type="checkbox" class="ck" id="mfTodos" checked></th><th>Nº</th><th>Data</th><th>Placa</th><th>Motorista</th><th>Líquido (kg)</th><th style="width:140px">Valor (R$)</th></tr></thead>
+      <tbody id="tbMf"></tbody></table></div>
+    <div class="res" style="margin:12px 0"><div class="k">Total da fatura</div><div class="v" id="mfTotal">—</div><div class="s" id="mfTotalS"></div></div>
+    <div class="acoes">
+      <button class="btn d" id="mfExcluir">🗑️ Excluir fatura</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn" id="mfFechar">Fechar</button>
+      <button class="btn" id="mfSalvar">Salvar</button>
+      <button class="btn p" id="mfSalvarImp">Salvar e imprimir</button>
+    </div>
+  </div>
+</div>
+
 <!-- modal tabela de valor -->
 <div class="modal-bg" id="modalPlano">
   <div class="modal" style="width:min(600px,100%)">
@@ -930,6 +1034,7 @@ async function lerBalanca() {
     $('#balMsg').textContent = b.ok ? (b.modelo || '') : b.mensagem;
     $('#dotBal').className = 'dot ' + (b.ok ? 'ok' : 'err');
   } catch (e) { $('#dotBal').className = 'dot err'; }
+  cicloCamera();
 }
 setInterval(lerBalanca, 1000); lerBalanca();
 
@@ -1047,9 +1152,123 @@ function selecionarCliente(c, viaTag) {
   const bt = $('#btnTrocar'); if (bt) bt.onclick = () => abrirFrota(c.empresa);
   $('#btnEditCad').onclick = () => abrirCad(c);
   $('#taraCad').disabled = !c.tara;
+  if (pesagemUnica() && c.tara) { $('#pesoInicial').value = c.tara; $('#pesoInicial').dataset.origem = 'cadastro'; }
   if (viaTag) { ESTADO.tag = viaTag; $('#tkEmissor').textContent = 'Emissor: Tag'; }
   calcular();
 }
+
+// ---------- câmera da balança / leitura de placa / pesagem automática ----------
+// fases: ocioso → placa (lendo) → estavel (esperando o peso parar) → contagem (5 s p/ cancelar) → feito (até o caminhão sair)
+const CAM = {fase: 'ocioso', tentativas: 0, lendo: false, estavelDesde: null, timer: null, placa: null, foto: false};
+// mesma chave para placa antiga e Mercosul (APZ9171 = APZ9B71), igual ao servidor
+function chavePlaca(p) {
+  p = String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return p.length === 7 && p[4] >= 'A' && p[4] <= 'J' ? p.slice(0, 4) + (p.charCodeAt(4) - 65) + p.slice(5) : p;
+}
+function camMsg(txt, auto) { $('#camMsg').innerHTML = txt; $('#camBox').classList.toggle('auto', !!auto); }
+function camResetar() {
+  clearInterval(CAM.timer); Object.assign(CAM, {fase: 'ocioso', tentativas: 0, estavelDesde: null, timer: null, placa: null});
+  $('#camPlaca').hidden = true; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
+}
+function atualizarFoto() {
+  if (CAM.foto || $('#camBox').hidden) return;
+  CAM.foto = true; const img = new Image();
+  img.onload = () => { $('#camImg').src = img.src; CAM.foto = false; $('#camTag').textContent = '📷 Ao vivo'; };
+  img.onerror = () => { CAM.foto = false; $('#camTag').textContent = '📷 Sem imagem da câmera'; };
+  img.src = '/api/camera/foto.jpg?t=' + Date.now();
+}
+setInterval(atualizarFoto, 700);
+function cicloCamera() {
+  const cm = CFG.camera, b = ESTADO.peso;
+  if (!cm?.ativo) { $('#camBox').hidden = true; return; }
+  const noPeso = b?.ok && b.peso >= (cm.peso_minimo ?? 100);
+  if (!noPeso) {  // balança vazia: esconde a câmera e prepara o próximo caminhão
+    if (CAM.fase === 'contagem') toast('Peso saiu da balança — pesagem automática cancelada.', 'warn');
+    if (CAM.fase !== 'ocioso') camResetar();
+    if (ESTADO.concluido) limpar();
+    $('#camBox').hidden = true; return;
+  }
+  if ($('#camBox').hidden) { $('#camBox').hidden = false; atualizarFoto(); }
+  if (CAM.fase === 'ocioso') {
+    CAM.fase = 'placa';
+    if (!$('#tab-pesagem').classList.contains('on') && !$('.modal-bg.on')) irPara('pesagem');
+    if (!cm.ler_placa) { CAM.fase = 'feito'; camMsg('Caminhão na balança.'); }
+    else camMsg('🔍 Lendo a placa…');
+  }
+  if (CAM.fase === 'placa' && !CAM.lendo && CAM.tentativas < 30) lerPlacaCamera();
+  if (CAM.fase === 'estavel') {
+    if (!b.estavel) { CAM.estavelDesde = null; camMsg(`Placa <b>${esc(CAM.placa)}</b> — aguardando o peso ficar <b>ESTÁVEL</b>…`, true); return; }
+    CAM.estavelDesde ??= Date.now();
+    const falta = (cm.segundos_estavel || 3) - (Date.now() - CAM.estavelDesde) / 1000;
+    if (falta > 0) { camMsg(`Placa <b>${esc(CAM.placa)}</b> — peso estável, conferindo… ${Math.ceil(falta)} s`, true); return; }
+    iniciarContagem();
+  }
+}
+async function lerPlacaCamera(manual) {
+  CAM.lendo = true; CAM.tentativas++;
+  try {
+    const r = await api('camera/placa');
+    if (!r.placa) {
+      if (r.erro) camMsg('⚠️ ' + esc(r.erro));
+      else if (CAM.tentativas >= 30 || manual) camMsg('Não consegui ler a placa — selecione o cadastro na tela.');
+      else camMsg(`🔍 Lendo a placa… (tentativa ${CAM.tentativas})`);
+      return;
+    }
+    if (CAM.fase !== 'placa') return;
+    CAM.placa = r.placa; $('#camPlaca').textContent = r.placa; $('#camPlaca').hidden = false;
+    const naTela = $('#placa').value.trim();
+    if (!manual && naTela && chavePlaca(naTela) === chavePlaca(r.placa)) {
+      // a pesagem desta placa já está na tela: só segue para o automático
+    } else if (!manual && naTela) {
+      CAM.fase = 'feito';
+      camMsg(`Placa lida <b>${esc(r.placa)}</b> é diferente da tela (<b>${esc(naTela)}</b>). <button class="btn sm p" id="camUsar">Usar placa lida</button>`);
+      $('#camUsar').onclick = () => { CAM.fase = 'placa'; CAM.tentativas = 0; lerPlacaCamera(true); };
+      return;
+    } else if (r.ticket_aberto) {
+      await carregarTicketNoForm(r.ticket_aberto);
+      toast(`📷 Placa <b>${esc(r.placa)}</b> lida — ticket ${r.ticket_aberto} aberto, fazendo a 2ª pesagem.`, 'ok');
+    } else if (r.clientes.length) {
+      limpar(); selecionarCliente(r.clientes[0]);
+      toast(`📷 Placa <b>${esc(r.placa)}</b> lida — cadastro: <b>${esc(r.clientes[0].nome)}</b>`, 'ok');
+      if (r.clientes.length > 1) toast(`A placa ${esc(r.placa)} tem ${r.clientes.length} cadastros — confira se é o certo.`, 'warn');
+    } else {
+      CAM.fase = 'feito'; $('#placa').value = r.placa; $('#busca').value = r.placa; buscarAC();
+      camMsg(`Placa <b>${esc(r.placa)}</b> sem cadastro — cadastre ou escolha na tela.`);
+      toast(`📷 Placa <b>${esc(r.placa)}</b> não está cadastrada.`, 'warn'); return;
+    }
+    if (CFG.camera.pesagem_automatica) { CAM.fase = 'estavel'; $('#camCancelar').hidden = false; }
+    else { CAM.fase = 'feito'; camMsg(`Placa <b>${esc(r.placa)}</b> — cadastro carregado. Capture o peso e salve.`); }
+  } catch (e) { camMsg('⚠️ ' + esc(e.message)); }
+  finally { CAM.lendo = false; }
+}
+function iniciarContagem() {
+  const unica = pesagemUnica(), final = !!ESTADO.ticket || unica, alvo = final ? '#pesoFinal' : '#pesoInicial';
+  if (unica && numero($('#pesoInicial').value) === null) {
+    CAM.fase = 'feito'; $('#camCancelar').hidden = true;
+    camMsg(`Placa <b>${esc(CAM.placa)}</b> sem TARA no cadastro — informe a TARA e clique em "Encerrar e imprimir".`);
+    capturar('#pesoFinal'); return;
+  }
+  capturar(alvo); CAM.fase = 'contagem'; let n = 5;
+  const passo = () => {
+    $('#camConta').hidden = false; $('#camConta').textContent = n + ' s';
+    const {liq} = calcular(), acao = CFG.camera.imprimir_automatico ? 'encerrar e imprimir' : 'encerrar';
+    camMsg(unica ? `Peso <b>${fmt(numero($(alvo).value))} kg</b> − TARA ${fmt(numero($('#pesoInicial').value))} = líquido <b>${fmt(liq)} kg</b> — ${acao}`
+      : `${final ? '2ª pesagem — ' + acao : '1ª pesagem — abrir ticket'}: <b>${fmt(numero($(alvo).value))} kg</b>`, true);
+    if (n-- > 0) return;
+    clearInterval(CAM.timer); $('#camConta').hidden = true; $('#camCancelar').hidden = true; CAM.fase = 'feito';
+    camMsg(`✅ Pesagem automática da placa <b>${esc(CAM.placa)}</b> feita. Aguardando o caminhão sair da balança.`);
+    salvar(final, !CFG.camera.imprimir_automatico, final);
+  };
+  passo(); CAM.timer = setInterval(passo, 1000);
+}
+$('#camCancelar').onclick = () => {
+  clearInterval(CAM.timer); CAM.fase = 'feito'; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
+  camMsg('Automático cancelado — termine a pesagem pelos botões.');
+};
+$('#camLer').onclick = () => {
+  if (CAM.lendo || CAM.fase === 'contagem') return;
+  CAM.fase = 'placa'; CAM.tentativas = 0; lerPlacaCamera(true);
+};
 
 // ---------- tags ----------
 function mostrarTagRes(lista, codigo) {
@@ -1118,12 +1337,14 @@ function validar(encerrar) {
   if (ESTADO.pagador === 'EMPRESA' && !$('#tkEmpresa').value) { toast('Selecione a empresa ou cobre do motorista.', 'err'); return false; }
   return true;
 }
-async function salvar(encerrar) {
+async function salvar(encerrar, semImprimir, manterNaTela) {
+  if (ESTADO.concluido) { imprimir(ESTADO.concluido, $('#impFoto').checked); return; }  // pesagem já encerrada na tela: o botão só reimprime
   if (!validar(encerrar)) return;
   const d = dadosForm(); d.encerrar = encerrar;
   try {
     const t = ESTADO.ticket ? await api('tickets/' + ESTADO.ticket.id, {method: 'PUT', body: d}) : await api('tickets', {method: 'POST', body: d});
-    if (encerrar) { toast(`Ticket <b>${t.id}</b> encerrado · líquido ${fmt(t.peso_liquido)} kg`, 'ok'); imprimir(t); limpar(); }
+    if (encerrar) { toast(`Ticket <b>${t.id}</b> encerrado · líquido ${fmt(t.peso_liquido)} kg`, 'ok'); if (!semImprimir) imprimir(t, $('#impFoto').checked);
+      if (manterNaTela) mostrarConcluido(t); else limpar(); }
     else { toast(`Ticket <b>${t.id}</b> salvo como ABERTO. Finalize em "Tickets abertos".`, 'ok'); limpar(); }
     atualizarResumo();
   } catch (e) { toast(e.message, 'err'); }
@@ -1135,17 +1356,46 @@ $('#btnCancelar').onclick = async () => {
   if (!ESTADO.ticket || !await confirmar(`Cancelar o ticket ${ESTADO.ticket.id}?`)) return;
   await api(`tickets/${ESTADO.ticket.id}/cancelar`, {method: 'POST'}); toast('Ticket cancelado.', 'warn'); limpar(); atualizarResumo();
 };
+// ticket encerrado pela câmera: fica na tela (travado) até o veículo sair da balança
+function mostrarConcluido(t) {
+  ESTADO.concluido = t; ESTADO.ticket = null;
+  $('#pesoInicial').value = t.peso_inicial ?? ''; $('#pesoFinal').value = t.peso_final ?? ''; calcular();
+  $('#tkNumero').textContent = `Nº ${t.id} · ✅ ENCERRADO`;
+  $('#metaIni').textContent = `TARA ${t.origem_inicial === 'cadastro' ? 'do cadastro' : ''} · ${dataBR(t.data_inicial)}`;
+  $('#metaFin').textContent = `Pesado em ${dataBR(t.data_final)} · Balança ${t.balanca_final ?? '-'} · ${t.operador_final || ''}`;
+  $('#btnEncerrar').textContent = `🖨️ Imprimir ticket Nº ${t.id}`; $('#btnAbrir').hidden = true; $('#btnCancelar').hidden = true;
+  $$('#tab-pesagem .grid > div:last-child input, #tab-pesagem .grid > div:last-child select').forEach(el => el.disabled = true);
+  $('#capIni').disabled = $('#capFin').disabled = $('#taraCad').disabled = true;
+  $('#impFoto').disabled = false;  // dá para marcar a foto e reimprimir
+}
 function limpar() {
-  ESTADO.ticket = null; ESTADO.cliente = null; ESTADO.tag = null;
+  if (ESTADO.concluido) {
+    ESTADO.concluido = null;
+    $$('#tab-pesagem .grid > div:last-child input, #tab-pesagem .grid > div:last-child select').forEach(el => el.disabled = false);
+    $('#capIni').disabled = $('#capFin').disabled = false; $('#btnEncerrar').textContent = '🖨️ Encerrar e imprimir';
+  }
+  ESTADO.ticket = null; ESTADO.cliente = null; ESTADO.tag = null; $('#impFoto').checked = false;
   ['busca', 'placa', 'motorista', 'item', 'pesoInicial', 'pesoFinal', 'pesoOrigem', 'localDescarga', 'observacao', 'tagCodigo', 'valorManual']
     .forEach(id => { $('#' + id).value = ''; delete $('#' + id).dataset.origem; });
   $('#cliBox').classList.remove('on'); $('#tagRes').innerHTML = ''; $('#taraCad').disabled = true;
+  $$('#patioLista .pp.sel').forEach(el => el.classList.remove('sel'));
   $('#frota').hidden = true; $('#selEmpresa').value = ''; $('#tkEmpresa').value = ''; setPagador('MOTORISTA');
   $('#tkNumero').textContent = 'NOVO'; $('#tkEmissor').textContent = 'Emissor: Manual'; $('#btnCancelar').hidden = true;
   $('#btnAbrir').textContent = '💾 Salvar 1ª pesagem (ticket aberto)';
   $('#metaIni').textContent = 'Data/hora e operador registrados ao salvar.';
   $('#metaFin').textContent = 'Pode ficar em branco e ser feita depois (ticket aberto).';
-  calcular();
+  modoPesagem(); calcular();
+}
+// pesagem única: TARA vem do cadastro e o peso da balança já é o final (encerra direto)
+const pesagemUnica = () => CFG.pesagem_unica !== false && !ESTADO.ticket;
+function modoPesagem() {
+  if (ESTADO.concluido) return;  // pesagem encerrada na tela: mantém os textos dela
+  const u = pesagemUnica();
+  $('#titIni').textContent = u ? 'TARA (do cadastro)' : 'Pesagem inicial';
+  $('#titFin').textContent = u ? 'Peso na balança' : 'Pesagem final';
+  if (u) { $('#metaIni').textContent = 'Vem do cadastro do caminhão (pode corrigir).';
+    $('#metaFin').textContent = 'Capture o peso e clique em "Encerrar e imprimir" — líquido = peso − TARA.'; }
+  $('#btnAbrir').hidden = u;
 }
 async function carregarTicketNoForm(id) {
   const t = await api('tickets/' + id); limpar(); ESTADO.ticket = t;
@@ -1158,12 +1408,12 @@ async function carregarTicketNoForm(id) {
   ESTADO.tag = t.tag; $('#tkNumero').textContent = 'Nº ' + t.id; $('#tkEmissor').textContent = 'Emissor: ' + t.emissor;
   $('#metaIni').textContent = `${dataBR(t.data_inicial)} · Balança ${t.balanca_inicial ?? '-'} · ${t.operador_inicial || ''} · ${t.origem_inicial || ''}`;
   $('#metaFin').textContent = 'Capture o peso final e clique em "Encerrar e imprimir".';
-  $('#btnCancelar').hidden = false; $('#btnAbrir').textContent = '💾 Salvar alterações';
+  $('#btnCancelar').hidden = false; $('#btnAbrir').textContent = '💾 Salvar alterações'; modoPesagem();
   irPara('pesagem'); calcular(); $('#pesoFinal').focus();
 }
 
 // ---------- impressão ----------
-function htmlTicket(t) {
+function htmlTicket(t, comFoto) {
   const ini = t.peso_inicial <= t.peso_final;
   const pct = t.peso_origem ? `${fmt(t.diferenca_origem)} kg (${fmt(t.diferenca_pct)}%)` : '0 kg (0%)';
   const emp = t.pagador ? (t.empresa_nome || 'Sem empresa (autônomo)') : (t.empresa_nome || t.transportadora || '');
@@ -1179,24 +1429,28 @@ function htmlTicket(t) {
         <td colspan="2" class="empd"><span class="h">Cobrança</span><br>${cob}</td></tr>
     <tr><td colspan="2"><span class="h">Placa</span> <span class="big">${esc(t.placa)}</span></td><td colspan="2"><span class="h">Motorista</span><br><b>${esc(t.motorista)}</b></td></tr>
     <tr><td colspan="2"><span class="h">Items</span><br>${esc(t.item)}</td><td colspan="2"><span class="h">Emissor</span><br>${esc(t.emissor)}</td></tr>
-    <tr><td colspan="2" style="width:50%"><span class="h">Pesagem Inicial</span><br>Data / Hora: ${dataBR(t.data_inicial)}<br>Balança: ${t.balanca_inicial ?? ''}<br>
+    <tr><td colspan="2" style="width:50%"><span class="h">${t.origem_inicial === 'cadastro' ? 'TARA do cadastro' : 'Pesagem Inicial'}</span><br>Data / Hora: ${dataBR(t.data_inicial)}<br>Balança: ${t.balanca_inicial ?? ''}<br>
         ${ini ? 'TARA' : 'Peso'}: <b>${fmt(t.peso_inicial)}</b> kg<br>Operador: ${esc(t.operador_inicial)}</td>
         <td colspan="2"><span class="h">Pesagem Final</span><br>Data / Hora: ${dataBR(t.data_final)}<br>Balança: ${t.balanca_final ?? ''}<br>
         ${ini ? 'Peso' : 'TARA'}: <b>${fmt(t.peso_final)}</b> kg<br>Operador: ${esc(t.operador_final)}</td></tr>
     <tr><td colspan="2">Peso Líquido<br><span class="big">${fmt(t.peso_liquido)} kg</span></td><td colspan="2">Diferenças Origem<br>${pct}</td></tr>
   </table>
+  ${comFoto && t.foto ? `<div class="foto"><img src="/api/tickets/${t.id}/foto.jpg" alt=""><span>Imagem da câmera da balança<br>${dataBR(t.data_final)}</span></div>` : ''}
   <div class="local">Local para Descarregar: ${esc(t.local_descarga)}</div>
   ${t.observacao ? `<div class="rod">Obs.: ${esc(t.observacao)}</div>` : ''}
   ${t.valor_manual !== null && t.valor_manual !== undefined ? `<div class="rod">Valor da pesagem: ${brl(t.valor_manual)}</div>` : ''}
   <div class="rod">Impresso em ${new Date().toLocaleString('pt-BR')}</div>
 </div>`;
 }
-function imprimir(t) {
+// a foto da câmera só sai quando o operador escolhe (comFoto)
+function imprimir(t, comFoto = false) {
   const vias = Math.max(1, parseInt(CFG.vias_impressao) || 1);
-  $('#print-area').innerHTML = Array.from({length: vias}, () => htmlTicket(t)).join('');
-  setTimeout(() => window.print(), 150);
+  $('#print-area').innerHTML = Array.from({length: vias}, () => htmlTicket(t, comFoto)).join('');
+  // espera a foto da câmera carregar (no máximo 3 s) antes de abrir a impressão
+  const imgs = $$('#print-area img').map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })).filter(Boolean);
+  Promise.race([Promise.all(imgs), new Promise(r => setTimeout(r, 3000))]).then(() => setTimeout(() => window.print(), 150));
 }
-async function reimprimir(id) { imprimir(await api('tickets/' + id)); }
+async function reimprimir(id, comFoto) { imprimir(await api('tickets/' + id), comFoto); }
 
 // ---------- listas ----------
 async function atualizarResumo() {
@@ -1206,7 +1460,26 @@ async function atualizarResumo() {
     $('#kpis').innerHTML = [['Tickets hoje', r.tickets_hoje], ['Líquido hoje', fmt(r.liquido_hoje) + ' kg'],
       ['Tickets abertos', r.abertos], ['Cadastros', r.cadastros]].map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
     if (!CFG.incontrol.ativo) { $('#tagInfo').textContent = 'Leitura automática desativada — ative em Configurações'; $('#dotTag').className = 'dot'; }
+    carregarPatio(); modoPesagem();
   } catch (e) { toast('Erro ao conectar no servidor: ' + e.message, 'err'); }
+}
+// tickets abertos na própria tela de pesagem: clicar carrega o ticket para a 2ª pesagem
+async function carregarPatio() {
+  const l = await api('tickets?status=ABERTO');
+  $('#patioPes').hidden = !l.length; $('#patioN').textContent = l.length;
+  $('#patioLista').innerHTML = l.map(t => `<div class="pp ${ESTADO.ticket?.id === t.id ? 'sel' : ''}" data-id="${t.id}">
+    <span class="pill">Nº ${t.id}</span>
+    <div class="info"><div class="pl">${esc(t.placa)}</div>
+      <small>${esc(t.motorista || '')}${t.empresa_nome ? ' · 🏢 ' + esc(t.empresa_nome) : ''}</small>
+      <small>1ª pesagem <b style="color:var(--txt)">${fmt(t.peso_inicial)} kg</b> · ${dataBR(t.data_inicial)}</small></div>
+    <button class="btn sm p">✅ Finalizar</button></div>`).join('');
+  $$('#patioLista .pp').forEach(el => el.onclick = () => finalizarDoPatio(el.dataset.id));
+}
+async function finalizarDoPatio(id) {
+  await carregarTicketNoForm(id); carregarPatio();
+  const b = ESTADO.peso, min = CFG.camera?.peso_minimo ?? 100;
+  if (b?.ok && b.peso >= min) capturar('#pesoFinal');  // caminhão já está na balança: traz o peso final
+  $('#pesoFinal').scrollIntoView({behavior: 'smooth', block: 'center'});
 }
 async function carregarAbertos() {
   const l = await api('tickets?status=ABERTO');
@@ -1230,6 +1503,7 @@ async function carregarTickets() {
     <td class="num"><b>${fmt(t.peso_liquido)}</b></td><td>${dataBR(t.data_final || t.data_inicial)}</td>
     <td>${t.status === 'ABERTO' ? `<button class="btn sm" onclick="carregarTicketNoForm(${t.id})">Finalizar</button>` : ''}
         ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="reimprimir(${t.id})">🖨️ Reimprimir</button>` : ''}
+        ${t.status === 'ENCERRADO' && t.foto ? `<button class="btn sm" onclick="reimprimir(${t.id}, true)" title="Reimprimir com a foto da câmera">📷 Com foto</button>` : ''}
         <button class="btn sm" onclick="abrirTicketEdicao(${t.id})">✏️ Editar</button>
         <button class="btn sm d" onclick="excluirTicket(${t.id})">🗑️</button></td></tr>`).join('')
     || '<tr><td colspan="12" class="vazio">Nenhum ticket ainda.</td></tr>';
@@ -1354,6 +1628,64 @@ async function excluirHist(i) {
   } catch (e) { toast(e.message, 'err'); }
 }
 let tmh; $('#buscaHist').oninput = () => { clearTimeout(tmh); tmh = setTimeout(carregarHist, 250); };
+
+// ---------- cobrança pelo histórico antigo (escolher pesagens e gerar PDF) ----------
+let COB = null;
+function valorCob(p) {
+  const v = numero($('#cobValor').value) || 0;
+  return $('#cobTipo').value === 'tonelada' ? Math.round((p.liquido || 0) / 1000 * v * 100) / 100 : v;
+}
+function sugerirValorCob(empresa) {  // tabela da empresa ou a tabela padrão
+  if ($('#cobValor').value.trim()) return;
+  const e = EMPRESAS.find(x => normTxt(x.nome) === normTxt(empresa));
+  const p = PLANOS.find(x => e && x.id === e.plano_id) || PLANOS.find(x => x.padrao && x.ativo);
+  if (!p || p.tipo === 'MENSAL') return;
+  $('#cobTipo').value = p.tipo === 'TONELADA' ? 'tonelada' : 'pesagem'; $('#cobValor').value = String(p.valor).replace('.', ',');
+}
+async function abrirCobranca() {
+  const q = $('#cobQ').value.trim(); if (!q) { toast('Digite a empresa, o motorista ou a placa.', 'err'); $('#cobQ').focus(); return; }
+  try {
+    COB = await api(`historico/cobranca?q=${encodeURIComponent(q)}&inicio=${$('#cobIni').value}&fim=${$('#cobFim').value}`);
+  } catch (e) { return toast(e.message, 'err'); }
+  sugerirValorCob(COB.empresas.length === 1 ? COB.empresas[0] : q);
+  $('#cobRes').hidden = false;
+  $('#tbCob').innerHTML = COB.pesagens.map((p, i) => `<tr><td><input type="checkbox" class="ck cobck" data-i="${i}" checked></td>
+    <td>${p.id}</td><td>${dataBR(p.data)}</td><td><b>${esc(p.placa)}</b></td><td>${esc(p.nome)}</td><td>${esc(p.motorista)}</td>
+    <td>${esc(p.empresa)}</td><td class="num">${fmt(p.liquido)}</td><td class="num cobv"></td></tr>`).join('')
+    || '<tr><td colspan="9" class="vazio">Nenhuma pesagem encontrada.</td></tr>';
+  $('#cobCk').checked = true; totalCob();
+}
+function selecionadasCob() { return $$('#tbCob .cobck').filter(c => c.checked).map(c => COB.pesagens[c.dataset.i]); }
+function totalCob() {
+  if (!COB) return;
+  $$('#tbCob .cobck').forEach(c => { const tr = c.closest('tr'); tr.style.opacity = c.checked ? 1 : .45;
+    tr.querySelector('.cobv').textContent = brl(valorCob(COB.pesagens[c.dataset.i])); });
+  const s = selecionadasCob(), liq = s.reduce((a, p) => a + (p.liquido || 0), 0), val = s.reduce((a, p) => a + valorCob(p), 0);
+  $('#cobKpis').innerHTML = [['Selecionadas', `${s.length} de ${COB.pesagens.length}`], ['Peso líquido', fmt(liq) + ' kg'], ['Valor', brl(val)]]
+    .map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+}
+$('#cobAbrir').onclick = abrirCobranca;
+$('#cobQ').onkeydown = e => { if (e.key === 'Enter') abrirCobranca(); };
+$('#tbCob').onchange = totalCob; $('#cobValor').oninput = totalCob; $('#cobTipo').onchange = totalCob;
+$('#cobCk').onchange = e => { $$('#tbCob .cobck').forEach(c => c.checked = e.target.checked); totalCob(); };
+$('#cobTodas').onclick = () => { $$('#tbCob .cobck').forEach(c => c.checked = true); $('#cobCk').checked = true; totalCob(); };
+$('#cobNenhuma').onclick = () => { $$('#tbCob .cobck').forEach(c => c.checked = false); $('#cobCk').checked = false; totalCob(); };
+$('#cobPdf').onclick = () => {
+  const s = selecionadasCob(); if (!s.length) return toast('Marque pelo menos uma pesagem.', 'err');
+  const datas = s.map(p => p.data).sort(), emps = [...new Set(s.map(p => p.empresa).filter(Boolean))];
+  const nome = emps.length === 1 && normTxt(emps[0]).includes(normTxt(COB.q)) ? emps[0] : COB.q.toUpperCase();
+  const e = EMPRESAS.find(x => normTxt(x.nome) === normTxt(nome));
+  const mot = {};
+  s.forEach(p => { const m = mot[p.motorista] ??= {nome: p.motorista, placas: [], pesagens: 0, liquido: 0, valor: 0};
+    if (!m.placas.includes(p.placa)) m.placas.push(p.placa); m.pesagens++; m.liquido += p.liquido || 0; m.valor += valorCob(p); });
+  const titulo = document.title; document.title = `Cobranca ${nome} ${datas[0].slice(0, 10)} a ${datas.at(-1).slice(0, 10)}`;
+  window.addEventListener('afterprint', () => document.title = titulo, {once: true});
+  imprimirFechamento({titulo: 'Cobrança de pesagens', pagador: nome, tipo: e ? 'EMPRESA' : 'MOTORISTA', empresa_id: e?.id,
+    inicio: datas[0], fim: datas.at(-1), plano: null, mensalidades: [], motoristas: Object.values(mot),
+    linhas: s.map(p => ({numero: 'H' + p.id, data: p.data, placa: p.placa, motorista: p.motorista, empresa: p.empresa, item: p.modelo,
+      liquido: p.liquido, valor: valorCob(p), regra: $('#cobTipo').value})),
+    valor: s.reduce((a, p) => a + valorCob(p), 0)});
+};
 
 // ---------- dashboard ----------
 let DASH = null, dashDias = 30, dashTimer = null;
@@ -2048,8 +2380,9 @@ async function carregarFaturas() {
     <td><span class="stf ${f.status === 'PAGA' ? 'paga' : 'aberta'}">${f.status === 'PAGA' ? '✓ Paga ' + dataBR(f.pago_em).slice(0, 10) : 'Em aberto'}</span></td>
     <td>${dataBR(f.criado_em)}</td>
     <td><button class="btn sm" data-f="imp" data-id="${f.id}">🖨️</button>
+      <button class="btn sm" data-f="edit" data-id="${f.id}">✏️ Editar</button>
       <button class="btn sm ${f.status === 'PAGA' ? '' : 'p'}" data-f="${f.status === 'PAGA' ? 'abrir' : 'pagar'}" data-id="${f.id}">${f.status === 'PAGA' ? 'Reabrir' : '✓ Marcar paga'}</button>
-      <button class="btn sm d" data-f="del" data-id="${f.id}" title="Excluir fatura (as pesagens voltam para o a faturar)">🗑️</button></td></tr>`).join('')
+      <button class="btn sm d" data-f="del" data-id="${f.id}" title="Excluir fatura (as pesagens voltam para o a faturar)">🗑️ Excluir</button></td></tr>`).join('')
     || '<tr><td colspan="8" class="vazio">Nenhuma fatura gerada.</td></tr>';
 }
 $('#fatStatus').onchange = carregarFaturas;
@@ -2057,12 +2390,60 @@ $('#tbFaturas').onclick = async e => {
   const b = e.target.closest('[data-f]'); if (!b) return; const id = b.dataset.id;
   try {
     if (b.dataset.f === 'imp') return imprimirFatura(await api('faturas/' + id));
+    if (b.dataset.f === 'edit') return abrirFaturaEdicao(id);
     if (b.dataset.f === 'pagar' || b.dataset.f === 'abrir') { await api('faturas/' + id, {method: 'PUT', body: {status: b.dataset.f === 'pagar' ? 'PAGA' : 'ABERTA'}}); toast('Fatura atualizada.', 'ok'); }
     if (b.dataset.f === 'del') { if (!await confirmar(`Excluir a fatura Nº ${id}? As pesagens dela voltam para o "a faturar".`)) return;
       await api('faturas/' + id, {method: 'DELETE'}); toast('Fatura excluída.', 'warn'); }
     $('#tab-faturamento').classList.contains('on') && FAT ? calcularFat() : carregarFaturas();
   } catch (err) { toast(err.message, 'err'); }
 };
+// ---------- editar fatura ----------
+let FATED = null;
+async function abrirFaturaEdicao(id) {
+  const f = FATED = await api('faturas/' + id), d = f.detalhes || {};
+  $('#mfTitulo').textContent = `Editar fatura Nº ${f.id}`;
+  $('#mfInfo').innerHTML = `${f.pagador_tipo === 'EMPRESA' ? '🏢' : '👤'} <b>${esc(f.pagador)}</b> · ${dataBR(f.inicio).slice(0, 10)} a ${dataBR(f.fim).slice(0, 10)} · gerada em ${dataBR(f.criado_em)}`;
+  $('#mf_status').value = f.status; $('#mf_observacao').value = f.observacao || '';
+  const itens = [...(d.linhas || []).slice().sort((a, b) => (a.data || '').localeCompare(b.data || '')),
+    ...(d.mensalidades || []).map(m => ({...m, mensal: true}))];
+  $('#tbMf').innerHTML = itens.map(x => `<tr data-ref="${esc(x.ref)}">
+    <td><input type="checkbox" class="ck mfck" checked></td>
+    <td>${x.mensal ? '—' : esc(x.numero)}</td><td>${x.mensal ? 'Mensalidade ' + mesBR(x.mes) : dataBR(x.data)}</td>
+    <td>${esc(x.placa || '')}</td><td>${esc(x.motorista || '')}</td><td class="num">${x.mensal ? '' : fmt(x.liquido)}</td>
+    <td><input class="mfv" inputmode="decimal" value="${String(x.valor ?? 0).replace('.', ',')}" style="padding:6px 8px;text-align:right"></td></tr>`).join('')
+    || '<tr><td colspan="7" class="vazio">Fatura sem itens.</td></tr>';
+  $('#mfTodos').checked = true; totalFaturaEd(); $('#modalFat').classList.add('on');
+}
+function totalFaturaEd() {
+  let n = 0, t = 0;
+  $$('#tbMf tr[data-ref]').forEach(tr => { const on = tr.querySelector('.mfck').checked; tr.style.opacity = on ? 1 : .45;
+    if (on) { n++; t += numero(tr.querySelector('.mfv').value) || 0; } });
+  $('#mfTotal').textContent = brl(t); $('#mfTotalS').textContent = `${n} item(ns) na fatura`;
+}
+$('#tbMf').oninput = totalFaturaEd; $('#tbMf').onchange = totalFaturaEd;
+$('#mfTodos').onchange = e => { $$('#tbMf .mfck').forEach(c => c.checked = e.target.checked); totalFaturaEd(); };
+$('#mfFechar').onclick = () => $('#modalFat').classList.remove('on');
+async function salvarFaturaEd(imp) {
+  const itens = $$('#tbMf tr[data-ref]').filter(tr => tr.querySelector('.mfck').checked)
+    .map(tr => ({ref: tr.dataset.ref, valor: numero(tr.querySelector('.mfv').value) || 0}));
+  if (!itens.length) return toast('Nenhum item marcado. Para tirar tudo, use "Excluir fatura".', 'err');
+  try {
+    const body = {observacao: $('#mf_observacao').value, itens};
+    if ($('#mf_status').value !== FATED.status) body.status = $('#mf_status').value;
+    const f = await api('faturas/' + FATED.id, {method: 'PUT', body});
+    toast(`Fatura <b>Nº ${f.id}</b> salva: ${brl(f.valor)}`, 'ok'); $('#modalFat').classList.remove('on');
+    $('#tab-faturamento').classList.contains('on') && FAT ? calcularFat() : carregarFaturas();
+    if (imp) imprimirFatura(f);
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#mfSalvar').onclick = () => salvarFaturaEd(false);
+$('#mfSalvarImp').onclick = () => salvarFaturaEd(true);
+$('#mfExcluir').onclick = async () => {
+  if (!await confirmar(`Excluir a fatura Nº ${FATED.id}? As pesagens dela voltam para o "a faturar".`)) return;
+  try { await api('faturas/' + FATED.id, {method: 'DELETE'}); toast('Fatura excluída.', 'warn'); $('#modalFat').classList.remove('on');
+    $('#tab-faturamento').classList.contains('on') && FAT ? calcularFat() : carregarFaturas(); } catch (e) { toast(e.message, 'err'); }
+};
+
 function imprimirFatura(f) {
   const d = f.detalhes || {};
   imprimirFechamento({titulo: `Fatura Nº ${f.id}`, pagador: f.pagador, tipo: f.pagador_tipo, empresa_id: f.empresa_id, inicio: f.inicio, fim: f.fim,
@@ -2137,23 +2518,38 @@ $('#badgeBkp').onclick = () => { irPara('config'); setTimeout(() => $('#cardBack
 
 function carregarCfg() {
   $('#cfgEmpresa').value = CFG.empresa; $('#cfgNumBal').value = CFG.numero_balanca; $('#cfgVias').value = CFG.vias_impressao;
-  $('#cfgBalUrl').value = CFG.balanca_url; $('#cfgLegado').checked = CFG.registrar_no_historico_antigo; $('#cfgKiosk').checked = CFG.chrome_impressao_direta;
+  $('#cfgBalUrl').value = CFG.balanca_url; $('#cfgLegado').checked = CFG.registrar_no_historico_antigo; $('#cfgUnica').checked = CFG.pesagem_unica !== false; $('#cfgKiosk').checked = CFG.chrome_impressao_direta;
   $('#cfgBanco').textContent = CFG.banco_absoluto;
   $('#incAtivo').checked = CFG.incontrol.ativo; $('#incUrl').value = CFG.incontrol.url; $('#incUser').value = CFG.incontrol.usuario; $('#incSenha').value = CFG.incontrol.senha;
   $('#bkpAtivo').checked = CFG.backup.ativo; $('#bkpIntervalo').value = CFG.backup.intervalo_horas;
   $('#bkpManter').value = CFG.backup.manter; $('#bkpPasta').value = CFG.backup.pasta;
+  const cm = CFG.camera;
+  $('#camAtivo').checked = cm.ativo; $('#camUrl').value = cm.url; $('#camUser').value = cm.usuario; $('#camSenha').value = cm.senha;
+  $('#camMin').value = cm.peso_minimo; $('#camSeg').value = cm.segundos_estavel; $('#camLerPlaca').checked = cm.ler_placa; $('#camAuto').checked = cm.pesagem_automatica; $('#camImp').checked = !!cm.imprimir_automatico;
+  $('#camCfgInfo').textContent = cm.instalado ? 'Leitor de placas instalado (fast-alpr — gratuito, roda neste computador, sem internet).'
+    : 'Leitor de placas NÃO instalado: dê dois cliques em INSTALAR_CAMERA.bat na pasta do sistema.';
   carregarBackups();
 }
 async function salvarCfg() {
   CFG = await api('config', {method: 'POST', body: {
     empresa: $('#cfgEmpresa').value, numero_balanca: parseInt($('#cfgNumBal').value) || 1, vias_impressao: parseInt($('#cfgVias').value) || 1,
-    balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
+    balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, pesagem_unica: $('#cfgUnica').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
     incontrol: {ativo: $('#incAtivo').checked, url: $('#incUrl').value, usuario: $('#incUser').value, senha: $('#incSenha').value},
     backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
-             manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'}}});
+             manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'},
+    camera: {ativo: $('#camAtivo').checked, url: $('#camUrl').value.trim(), usuario: $('#camUser').value.trim(), senha: $('#camSenha').value,
+             peso_minimo: numero($('#camMin').value) ?? 100, segundos_estavel: numero($('#camSeg').value) || 3,
+             ler_placa: $('#camLerPlaca').checked, pesagem_automatica: $('#camAuto').checked, imprimir_automatico: $('#camImp').checked}}});
   ultimaChaveTag = null; atualizarResumo(); carregarBackups();
 }
 $('#cfgSalvar').onclick = async () => { try { await salvarCfg(); toast('Configurações salvas.', 'ok'); } catch (e) { toast(e.message, 'err'); } };
+$('#camTeste').onclick = async () => {
+  await salvarCfg(); const pre = $('#camDebug'); pre.hidden = false; pre.textContent = 'Conectando na câmera… (pode levar uns 15 segundos)';
+  let st = {};
+  for (let i = 0; i < 10; i++) { await new Promise(r => setTimeout(r, 2000)); st = await api('camera/status'); if (st.ok) break; }
+  pre.textContent = 'Situação: ' + JSON.stringify(st, null, 2);
+  if (st.ok) { pre.textContent += '\n\nLendo a placa da imagem atual…'; pre.textContent += '\n' + JSON.stringify(await api('camera/placa'), null, 2); }
+};
 $('#incTeste').onclick = async () => {
   await salvarCfg(); const pre = $('#incDebug'); pre.hidden = false; pre.textContent = 'Consultando InControl…';
   const r = await api('tag/ultima?debug=1'); pre.textContent = JSON.stringify(r, null, 2);

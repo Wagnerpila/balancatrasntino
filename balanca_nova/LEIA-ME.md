@@ -144,6 +144,40 @@ Aba **Relatórios**: filtro por período (atalhos Hoje, Ontem, 7 dias, Este mês
   Antes de restaurar, o sistema confere se o arquivo é um banco válido e faz um backup do estado atual, para poder desfazer.
 - Como o backup roda dentro deste sistema, ele só acontece com o sistema aberto.
 
+## Câmera da balança e leitura de placa
+- Câmera Ekaza em `192.168.100.29` (é uma câmera Tuya, a mesma do app Smart Life). O sistema pega o vídeo dela por **RTSP**.
+- **Leitor de placas:** fast-alpr (gratuito, código aberto). Roda **neste computador**, sem internet, sem limite de leituras.
+  A câmera só manda o vídeo. Lê as placas antigas (ABC1234) e as Mercosul (ABC1D23).
+  A placa Mercosul acha o cadastro da placa antiga do mesmo caminhão (APZ9B71 = APZ-9171).
+- Instalação: dois cliques em `INSTALAR_CAMERA.bat` (cria a pasta `lpr_venv`; já foi instalado em 28/10/2026).
+- Ligar em **Configurações → Câmera da balança**: endereço RTSP, usuário e senha, depois **Testar câmera**.
+- Como funciona na pesagem:
+  1. O peso passa de **100 kg** (ajustável), a câmera aparece embaixo do display da balança.
+  2. A placa é lida. Se há ticket aberto dessa placa, ele é carregado para a 2ª pesagem; se não, o cadastro é puxado.
+  3. Com **Pesagem automática** ligada: quando o peso fica **ESTÁVEL** por 3 segundos, o peso é capturado.
+     O sistema mostra uma contagem de **5 segundos** com o botão **✋ Cancelar automático**.
+     Depois **encerra o ticket sozinho**. Ele não imprime, a menos que "Imprimir o ticket na pesagem automática" esteja marcado.
+- Depois de encerrar sozinho, a pesagem **fica na tela**, travada e com o botão "🖨️ Imprimir ticket", até o veículo sair da balança.
+  Quando um veículo sobe, o sistema vai sozinho para a aba Pesagem.
+- **Foto no ticket:** ao encerrar um ticket com a câmera ligada, a imagem dela é guardada em `balanca_novaotos	icket_<nº>.jpg`.
+  Por padrão a foto **não sai na impressão**. Para sair, marque **📷 Imprimir com a foto** (ao lado de "Encerrar e imprimir")
+  ou use o botão **📷 Com foto** na aba Tickets. A pasta `fotos` não entra no backup do banco.
+- **Pesagem única** (padrão; desliga em Configurações → Geral): a TARA vem do cadastro e o peso da balança já é o final.
+  Líquido = peso − TARA, sem 2ª pesagem. Cadastro sem TARA: o sistema captura o peso e espera o operador informar a TARA.
+  Os tickets que já estavam abertos continuam sendo finalizados normalmente (pelo quadro "No pátio" ou pela câmera).
+  4. Placa sem cadastro: preenche a placa e busca, e o operador termina à mão. Nada é salvo sozinho.
+  5. Se a tela já tem outra placa preenchida, a câmera não apaga nada e mostra o botão **Usar placa lida**.
+     Se for a mesma placa, segue o automático.
+- **No pátio:** a tela de pesagem lista os tickets abertos, que estão esperando a 2ª pesagem.
+  **✅ Finalizar** carrega o ticket ali mesmo e já pega o peso, se o caminhão estiver na balança.
+- **Faturas:** em Faturamento → Faturas geradas, use **✏️ Editar** para mudar valores, situação e observação.
+  Desmarcar uma pesagem tira ela da fatura, e ela volta para o "a faturar". **🗑️ Excluir** apaga a fatura e as pesagens também voltam.
+- **Cobrança pelo histórico:** na aba Histórico antigo, digite a empresa, o motorista ou a placa e escolha o período.
+  Marque as pesagens e use **📄 Gerar PDF de cobrança** (na janela de impressão, escolha "Salvar como PDF").
+  A empresa vem do cadastro da placa. Essa cobrança não cria fatura.
+- Funcionamento por dentro: `servidor.py` inicia o programa `camera_lpr.py` (porta 8092, só neste computador).
+  Esse programa fecha sozinho quando o sistema é fechado.
+
 ## Impressão
 Usa a impressora padrão do Windows pela janela de impressão do navegador. O ticket segue o modelo manual,
 com uma via por folha (o número de vias fica em Configurações).
