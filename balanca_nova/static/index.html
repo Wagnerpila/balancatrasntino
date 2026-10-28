@@ -1142,6 +1142,7 @@ async function api(path, opts = {}) {
   const r = await fetch('/api/' + path, {headers: {'Content-Type': 'application/json'}, ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined});
   const j = await r.json().catch(() => ({erro: 'Resposta inválida do servidor'}));
+  if (r.status === 401 && !LOCAL && j?.login) location.href = '/_login';  // sessão do espelho venceu
   if (!r.ok) throw new Error(j && j.erro || ('Erro ' + r.status));
   return j;
 }
@@ -1201,7 +1202,8 @@ setInterval(() => $('#relogio').textContent = new Date().toLocaleString('pt-BR')
 
 // ---------- balança ----------
 async function lerBalanca() {
-  if (MODO_IMG) return;
+  if (MODO_IMG || lerBalanca.ocupado) return;  // pela internet a resposta pode demorar: não empilha pedidos
+  lerBalanca.ocupado = true;
   try {
     const b = await api('peso'); ESTADO.peso = b;
     $('#scale').classList.toggle('off', !b.ok);
@@ -1212,6 +1214,7 @@ async function lerBalanca() {
     $('#balMsg').textContent = b.ok ? (b.modelo || '') : b.mensagem;
     $('#dotBal').className = 'dot ' + (b.ok ? 'ok' : 'err');
   } catch (e) { $('#dotBal').className = 'dot err'; }
+  lerBalanca.ocupado = false;
   cicloCamera();
 }
 setInterval(lerBalanca, 1000); lerBalanca();
@@ -1525,7 +1528,9 @@ function statusEspelho(e) {
 if (!LOCAL && !MODO_IMG) {  // acesso pela internet: mostra se o computador da balança está conectado
   $('#badgeRemoto').hidden = false;
   const verRemoto = async () => {
-    try { const r = await (await fetch('/_status')).json();
+    try { const resp = await fetch('/_status');
+      if (resp.status === 401) { location.href = '/_login'; return; }  // sessão venceu: não é falta de conexão
+      const r = await resp.json();
       $('#remotoTxt').textContent = r.online ? 'Acesso remoto' : '⚠️ Computador da balança OFFLINE — mostrando a última cópia';
     } catch (e) {}
   };
@@ -1559,8 +1564,9 @@ $('#tagCodigo').onkeydown = e => { if (e.key === 'Enter') identificar(); };
 
 let ultimaChaveTag = null;
 async function lerTag() {
-  if (MODO_IMG) return;
+  if (MODO_IMG || lerTag.ocupado) return;
   if (!CFG.incontrol?.ativo) { $('#dotTag').className = 'dot'; return; }
+  lerTag.ocupado = true;
   try {
     const r = await api('tag/ultima');
     if (r.erro) { $('#dotTag').className = 'dot err'; $('#tagInfo').textContent = 'InControl: ' + r.erro; return; }
@@ -1574,7 +1580,7 @@ async function lerTag() {
       if (!ESTADO.ticket && !$('#placa').value) { $('#tagCodigo').value = r.usuario; mostrarTagRes(r.clientes, r.usuario); }
     }
     ultimaChaveTag = r.chave;
-  } catch (e) { $('#dotTag').className = 'dot err'; }
+  } catch (e) { $('#dotTag').className = 'dot err'; } finally { lerTag.ocupado = false; }
 }
 setInterval(lerTag, 3000);
 

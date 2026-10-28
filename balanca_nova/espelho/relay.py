@@ -13,6 +13,7 @@ Variáveis de ambiente: USUARIO, SENHA, AGENTE_TOKEN, PORTA (padrão 8000).
 Só biblioteca padrão do Python.
 """
 import base64
+import hashlib
 import hmac
 import json
 import os
@@ -27,15 +28,17 @@ USUARIO = os.environ.get("USUARIO", "balanca")
 SENHA = os.environ.get("SENHA", "")
 AGENTE_TOKEN = os.environ.get("AGENTE_TOKEN", "")
 PORTA = int(os.environ.get("PORTA", "8000"))
-SESSAO_HORAS = 12
+SESSAO_HORAS = 24 * 7    # a sessão dura 7 dias e se renova sozinha com o uso
 ESPERA_RESPOSTA = 60       # segundos esperando o computador da balança responder
 OFFLINE_APOS = 20          # sem contato do agente por mais que isso = offline
 
 FILA = queue.Queue()
 PENDENTES = {}             # id -> {"evento", "resposta"}
-SESSOES = {}               # token -> expira em
+SAIDAS = set()             # sessões encerradas com "Sair" (as demais valem até expirar)
 FALHAS_LOGIN = {}          # ip -> [quantidade, bloqueado até]
 CACHE = {}                 # caminho GET -> resposta (última cópia, para quando estiver offline)
+CACHE_MAX_BYTES = 60_000_000
+CACHE_MAX_ITEM = 2_000_000
 ESTADO = {"ultimo_contato": 0.0, "aguardando": 0}  # aguardando = consultas do agente esperando pedido
 LOCK = threading.Lock()
 
@@ -48,6 +51,36 @@ def bloqueado(metodo, caminho):
 def guardar_em_cache(caminho):
     p = urllib.parse.urlsplit(caminho).path
     return not any(p.startswith(x) for x in ("/api/peso", "/api/camera", "/api/tag"))
+
+
+# A sessão fica no próprio cookie, assinada com a senha: reiniciar ou fazer deploy
+# do espelho não desconecta ninguém (antes ficava só na memória e caía).
+CHAVE_SESSAO = hashlib.sha256(("sessao:" + SENHA + ":" + AGENTE_TOKEN).encode()).digest()
+
+
+def assinar(texto):
+    return hmac.new(CHAVE_SESSAO, texto.encode(), hashlib.sha256).hexdigest()
+
+
+def nova_sessao():
+    texto = str(int(time.time() + SESSAO_HORAS * 3600)) + "." + secrets.token_hex(8)
+    return texto + "." + assinar(texto)
+
+
+def expira_em(token):
+    try:
+        return int((token or "").split(".")[0])
+    except ValueError:
+        return 0
+
+
+def sessao_valida(token):
+    """Devolve quando a sessão expira (0 se for inválida)."""
+    texto, _, assinatura = (token or "").rpartition(".")
+    if not texto or token in SAIDAS or not hmac.compare_digest(assinatura, assinar(texto)):
+        return 0
+    exp = expira_em(token)
+    return exp if exp > time.time() else 0
 
 
 def agente_online():
@@ -113,14 +146,19 @@ class Handler(BaseHTTPRequestHandler):
         return self.rfile.read(n) if n else b""
 
     # ---------------- sessão ----------------
-    def sessao_ok(self):
+    def cookie_sessao(self):
         for parte in (self.headers.get("Cookie") or "").split(";"):
             k, _, v = parte.strip().partition("=")
             if k == "espelho":
-                with LOCK:
-                    exp = SESSOES.get(v)
-                return bool(exp and exp > time.time())
-        return False
+                return v
+        return ""
+
+    def sessao_ok(self):
+        return sessao_valida(self.cookie_sessao()) > 0
+
+    def set_cookie(self, token):
+        seguro = "; Secure" if self.headers.get("X-Forwarded-Proto") == "https" else ""
+        return f"espelho={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSAO_HORAS * 3600}{seguro}"
 
     def login(self):
         ip = self.ip()
@@ -131,13 +169,9 @@ class Handler(BaseHTTPRequestHandler):
         u, s = (dados.get("usuario") or [""])[0].strip(), (dados.get("senha") or [""])[0]
         if SENHA and hmac.compare_digest(u.lower(), USUARIO.lower()) and hmac.compare_digest(s, SENHA):
             FALHAS_LOGIN.pop(ip, None)
-            token = secrets.token_urlsafe(32)
-            with LOCK:
-                SESSOES[token] = time.time() + SESSAO_HORAS * 3600
-            seguro = "; Secure" if self.headers.get("X-Forwarded-Proto") == "https" else ""
             self.send_response(303)
             self.send_header("Location", "/")
-            self.send_header("Set-Cookie", f"espelho={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSAO_HORAS * 3600}{seguro}")
+            self.send_header("Set-Cookie", self.set_cookie(nova_sessao()))
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
@@ -155,10 +189,15 @@ class Handler(BaseHTTPRequestHandler):
         ESTADO["ultimo_contato"] = time.time()
         with LOCK:
             ESTADO["aguardando"] += 1
+        pedido, limite = None, time.time() + 25
         try:
-            pedido = FILA.get(timeout=25)
+            while time.time() < limite:
+                p = FILA.get(timeout=max(0.1, limite - time.time()))
+                if p["id"] in PENDENTES:  # pula pedidos que o navegador já desistiu de esperar
+                    pedido = p
+                    break
         except queue.Empty:
-            pedido = None
+            pass
         finally:
             with LOCK:
                 ESTADO["aguardando"] -= 1
@@ -203,10 +242,12 @@ class Handler(BaseHTTPRequestHandler):
         cab = {k: v for k, v in (r.get("cabecalhos") or {}).items() if k.lower() in ("content-disposition",)}
         tipo = (r.get("cabecalhos") or {}).get("Content-Type") or "application/octet-stream"
         status = int(r.get("status") or 502)
-        if metodo == "GET" and status == 200 and guardar_em_cache(caminho):
-            if len(CACHE) > 500 and caminho not in CACHE:
-                CACHE.pop(next(iter(CACHE)))  # descarta a mais antiga
-            CACHE[caminho] = (tipo, corpo, cab)
+        if metodo == "GET" and status == 200 and guardar_em_cache(caminho) and len(corpo) <= CACHE_MAX_ITEM:
+            with LOCK:  # limite de memória: a VPS reiniciava o espelho quando a cópia crescia demais
+                CACHE.pop(caminho, None)
+                CACHE[caminho] = (tipo, corpo, cab)
+                while len(CACHE) > 500 or sum(len(c[1]) for c in CACHE.values()) > CACHE_MAX_BYTES:
+                    CACHE.pop(next(iter(CACHE)))  # descarta a mais antiga
         self.enviar(status, corpo, tipo, cab)
 
     def copia_ou_offline(self, metodo, caminho):
@@ -237,17 +278,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.enviar(200, PAGINA_LOGIN.replace("%ERRO%", ""))
             if not self.sessao_ok():
                 if caminho.startswith("/api/") or caminho.startswith("/_"):
-                    return self.json(401, {"erro": "Faça login de novo."})
+                    return self.json(401, {"erro": "Sessão expirada — faça login de novo.", "login": True})
                 self.send_response(303)
                 self.send_header("Location", "/_login")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
             if caminho == "/_sair":
-                for parte in (self.headers.get("Cookie") or "").split(";"):
-                    k, _, v = parte.strip().partition("=")
-                    if k == "espelho":
-                        SESSOES.pop(v, None)
+                SAIDAS.add(self.cookie_sessao())
                 self.send_response(303)
                 self.send_header("Location", "/_login")
                 self.send_header("Set-Cookie", "espelho=; Path=/; Max-Age=0")
@@ -255,7 +293,11 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             if caminho == "/_status":
-                return self.json(200, {"online": agente_online(), "ultimo_contato": ESTADO["ultimo_contato"]})
+                extras = {}
+                if sessao_valida(self.cookie_sessao()) - time.time() < SESSAO_HORAS * 3600 / 2:
+                    extras["Set-Cookie"] = self.set_cookie(nova_sessao())  # renova a sessão de quem está usando
+                corpo = {"online": agente_online(), "ultimo_contato": ESTADO["ultimo_contato"]}
+                return self.enviar(200, json.dumps(corpo), "application/json; charset=utf-8", extras)
             self.repassar(metodo)
         except (BrokenPipeError, ConnectionResetError):
             pass
@@ -267,6 +309,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self.tratar("GET")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_POST(self):
         self.tratar("POST")
@@ -281,10 +328,8 @@ class Handler(BaseHTTPRequestHandler):
 def limpar_sessoes():
     while True:
         time.sleep(600)
-        agora = time.time()
-        with LOCK:
-            for t in [t for t, e in SESSOES.items() if e < agora]:
-                SESSOES.pop(t, None)
+        for t in [t for t in SAIDAS if expira_em(t) < time.time()]:
+            SAIDAS.discard(t)
 
 
 if __name__ == "__main__":
