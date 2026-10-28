@@ -2140,10 +2140,35 @@ $('#mcSalvar').onclick = async () => {
   try {
     const c = cadAtual ? await api('clientes/' + cadAtual.id, {method: 'PUT', body: d}) : await api('clientes', {method: 'POST', body: d});
     toast('Cadastro salvo.', 'ok'); $('#modalCad').classList.remove('on'); carregarEmpresas();
-    if ($('#tab-cadastros').classList.contains('on')) carregarCad(); else selecionarCliente(c);
+    sincronizarCadastro(c, !cadAtual);
+    if ($('#tab-cadastros').classList.contains('on')) carregarCad();
     atualizarResumo();
   } catch (e) { toast(e.message, 'err'); }
 };
+// cadastro salvo (em qualquer aba) que é o caminhão da pesagem: atualiza a tela na hora,
+// mantendo o peso já capturado; se o automático parou por falta de cadastro/TARA, ele volta
+function sincronizarCadastro(c, novo) {
+  if (ESTADO.concluido) return;  // pesagem já encerrada na tela não muda
+  const placaTela = $('#placa').value.trim();
+  const mesmo = ESTADO.cliente ? ESTADO.cliente.id === c.id
+    : novo && (placaTela ? chavePlaca(placaTela) === chavePlaca(c.placa) : !$('#tab-cadastros').classList.contains('on'));  // cadastro novo da placa da tela
+  if (!mesmo) return;
+  const guardar = ['pesoFinal', 'pesoOrigem', 'localDescarga', 'observacao', 'valorManual'].map(id => [id, $('#' + id).value, $('#' + id).dataset.origem]);
+  const iniAntes = [$('#pesoInicial').value, $('#pesoInicial').dataset.origem];
+  selecionarCliente(c, ESTADO.tag);
+  guardar.forEach(([id, v, o]) => { $('#' + id).value = v; if (o) $('#' + id).dataset.origem = o; });
+  if (!(pesagemUnica() && c.tara)) { $('#pesoInicial').value = iniAntes[0]; if (iniAntes[1]) $('#pesoInicial').dataset.origem = iniAntes[1]; }
+  calcular();
+  toast(`🔄 Pesagem atualizada com o cadastro <b>${esc(c.nome)}</b>${pesagemUnica() && c.tara ? ` · TARA ${fmt(c.tara)} kg` : ''}`, 'ok');
+  // automático tinha parado (placa sem cadastro / sem TARA) e o veículo continua na balança: retoma
+  const b = ESTADO.peso, naBalanca = b?.ok && b.peso >= (CFG.camera?.peso_minimo ?? 100);
+  if (CFG.camera?.ativo && CFG.camera.pesagem_automatica && CAM.fase === 'feito' && naBalanca && CAM.placa
+      && chavePlaca(CAM.placa) === chavePlaca(c.placa) && (!pesagemUnica() || c.tara)) {
+    Object.assign(CAM, {fase: 'estavel', desde: Date.now(), estavelDesde: null, alertaInst: false});
+    $('#camCancelar').hidden = false; $('#alertaOp').hidden = true;
+    camMsg(`Cadastro atualizado — placa <b>${esc(c.placa)}</b> aguardando o peso ficar <b>ESTÁVEL</b>…`, true);
+  }
+}
 $('#mcExcluir').onclick = () => excluirCad(cadAtual);
 async function excluirCad(c) {
   if (!c || !await confirmar(`Excluir o cadastro de ${c.nome} (placa ${c.placa})? Os tickets já feitos não são apagados.`)) return;

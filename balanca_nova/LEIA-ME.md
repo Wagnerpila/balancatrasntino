@@ -169,6 +169,10 @@ Aba **Relatórios**: filtro por período (atalhos Hoje, Ontem, 7 dias, Este mês
   placa não lida depois de 20 tentativas, câmera fora do ar, placa sem cadastro, cadastro sem TARA,
   peso que não estabiliza em 90 s, pesagem que não salvou e ticket que não imprimiu.
 - **Log de falhas:** tudo isso é gravado em `balanca_nova\logs\falhas.log` e aparece em Configurações → "Log de falhas".
+- **Cadastro sincronizado com a pesagem:** ao salvar o cadastro do caminhão que está na tela de pesagem, em qualquer aba,
+  a pesagem é atualizada na hora: placa, motorista, empresa, cobrança, item e TARA. O líquido é recalculado e o peso já capturado continua.
+  Se o automático tinha parado por placa sem cadastro ou cadastro sem TARA, ele volta sozinho enquanto o veículo estiver na balança.
+  Uma pesagem já encerrada (travada na tela) não muda.
 - **Pesagem única** (padrão; desliga em Configurações → Geral): a TARA vem do cadastro e o peso da balança já é o final.
   Líquido = peso − TARA, sem 2ª pesagem. Cadastro sem TARA: o sistema captura o peso e espera o operador informar a TARA.
   Os tickets que já estavam abertos continuam sendo finalizados normalmente (pelo quadro "No pátio" ou pela câmera).
