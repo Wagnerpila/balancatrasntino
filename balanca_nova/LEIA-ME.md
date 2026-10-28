@@ -252,3 +252,10 @@ Fica em `config.json`: porta, caminho do banco, URL da balança, nome da empresa
   No espelho (`espelho/relay.py`), a logo vai dentro do próprio arquivo.
 - Guia rápido em PDF: `docs/Guia_Balanca_Transtino.pdf`. Para editar, mude `docs/guia.html` e gere de novo com o Chrome:
   `chrome --headless=new --no-pdf-header-footer --print-to-pdf=docs/Guia_Balanca_Transtino.pdf docs/guia.html`
+
+## Versão de celular
+- Até 760 px de largura (celular) a mesma tela se adapta:
+  - Topo compacto com logo, bolinhas e o botão **☰ Menu** (mostra a aba atual). As abas abrem numa lista grande, e o operador e o "Sair" ficam dentro dela.
+  - Formulários em uma coluna, campos e botões com pelo menos 44 px e letra de 16 px (sem zoom automático no iPhone). Janelas em tela cheia.
+  - As tabelas viram cartões em 2 colunas: cada célula recebe `data-label` com o nome da coluna (`rotularTabela`, automático).
+- Não há outro endereço: abrir https://balancatranstino.wcmdigital.com.br no celular já mostra essa versão.
