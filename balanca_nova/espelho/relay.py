@@ -36,7 +36,7 @@ PENDENTES = {}             # id -> {"evento", "resposta"}
 SESSOES = {}               # token -> expira em
 FALHAS_LOGIN = {}          # ip -> [quantidade, bloqueado até]
 CACHE = {}                 # caminho GET -> resposta (última cópia, para quando estiver offline)
-ESTADO = {"ultimo_contato": 0.0}
+ESTADO = {"ultimo_contato": 0.0, "aguardando": 0}  # aguardando = consultas do agente esperando pedido
 LOCK = threading.Lock()
 
 # o que não pode ser feito pela internet (o computador da balança também bloqueia)
@@ -51,7 +51,7 @@ def guardar_em_cache(caminho):
 
 
 def agente_online():
-    return time.time() - ESTADO["ultimo_contato"] < OFFLINE_APOS
+    return ESTADO["aguardando"] > 0 or time.time() - ESTADO["ultimo_contato"] < OFFLINE_APOS
 
 
 PAGINA_LOGIN = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
@@ -148,13 +148,23 @@ class Handler(BaseHTTPRequestHandler):
 
     def agente_proximo(self):
         ESTADO["ultimo_contato"] = time.time()
+        with LOCK:
+            ESTADO["aguardando"] += 1
         try:
             pedido = FILA.get(timeout=25)
         except queue.Empty:
+            pedido = None
+        finally:
+            with LOCK:
+                ESTADO["aguardando"] -= 1
             ESTADO["ultimo_contato"] = time.time()
+        if pedido is None:
             return self.enviar(204, b"")
-        ESTADO["ultimo_contato"] = time.time()
-        self.json(200, pedido)
+        try:
+            self.json(200, pedido)
+        except OSError:
+            FILA.put(pedido)  # a conexão do agente caiu: devolve o pedido para outra consulta
+            raise
 
     def agente_resposta(self):
         ESTADO["ultimo_contato"] = time.time()
