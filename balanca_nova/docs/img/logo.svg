@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 120" role="img" aria-label="Balança Transtino — Pesagem rodoviária">
+  <defs>
+    <linearGradient id="bt-fundo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34c759"/>
+      <stop offset="1" stop-color="#1b7a3a"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#bt-fundo)"/>
+  <rect x="38" y="14" width="44" height="20" rx="5" fill="#0d1b2a"/>
+  <rect x="44" y="20" width="5" height="8" rx="1" fill="#5dff8f"/>
+  <rect x="52" y="20" width="5" height="8" rx="1" fill="#5dff8f"/>
+  <rect x="60" y="20" width="5" height="8" rx="1" fill="#5dff8f"/>
+  <rect x="68" y="25" width="8" height="3" rx="1" fill="#5dff8f"/>
+  <rect x="14" y="46" width="56" height="30" rx="4" fill="#ffffff"/>
+  <path d="M73 52h17l10 13v11H73z" fill="#ffffff"/>
+  <path d="M78 56h10l6 8H78z" fill="#1b7a3a"/>
+  <circle cx="28" cy="80" r="8" fill="#0d1b2a" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="54" cy="80" r="8" fill="#0d1b2a" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="88" cy="80" r="8" fill="#0d1b2a" stroke="#ffffff" stroke-width="3"/>
+  <rect x="8" y="91" width="104" height="8" rx="3" fill="#0d1b2a"/>
+  <path d="M20 99h10l-3 9h-4zM90 99h10l-3 9h-4z" fill="#0d1b2a"/>
+  <!-- nome -->
+  <g font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-weight="800">
+    <text x="140" y="56" font-size="40" fill="#0d1b2a" letter-spacing="1">BALANÇA</text>
+    <text x="140" y="96" font-size="40" fill="#1f9a46" letter-spacing="1">TRANSTINO</text>
+  </g>
+  <rect x="140" y="106" width="250" height="3" rx="1.5" fill="#1f9a46" opacity=".35"/>
+</svg>

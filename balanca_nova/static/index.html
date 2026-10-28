@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pesagem Transtino</title>
+<link rel="icon" href="/logo-icone.svg" type="image/svg+xml">
 <style>
 :root{
   --bg:#0f1419; --bg2:#161d25; --card:#1b232d; --card2:#222c38; --line:#2c3846;
@@ -18,6 +19,7 @@ header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:18px
   padding:10px 20px;background:var(--bg2);border-bottom:1px solid var(--line)}
 .logo{font-weight:800;letter-spacing:.5px;font-size:17px;white-space:nowrap}
 .logo span{color:var(--acc)}
+.logo img{height:30px;vertical-align:middle;margin:-4px 8px 0 0}
 nav{display:flex;gap:4px;flex-wrap:wrap}
 nav button{background:none;border:0;padding:8px 14px;border-radius:10px;color:var(--mut);cursor:pointer;font-weight:600}
 nav button:hover{background:var(--card);color:var(--txt)}
@@ -177,6 +179,7 @@ code{background:var(--bg2);padding:2px 6px;border-radius:6px}
 #print-area{display:none}
 .tkp{break-inside:avoid;font-family:Cambria,Georgia,"Times New Roman",serif;color:#000;background:#fff;width:190mm;margin:0 auto;padding:6mm 0}
 .tkp h1{font-size:30px;text-align:center;margin:0 0 10px;font-weight:400;letter-spacing:1px}
+.tkp h1 img{height:62px;display:block;margin:0 auto}
 .tkp table{width:100%;border-collapse:collapse;font-size:13px}
 .tkp td{border:1px solid #000;vertical-align:top;padding:5px 7px;white-space:normal;color:#000}
 .tkp .h{font-weight:700}
@@ -260,7 +263,7 @@ code{background:var(--bg2);padding:2px 6px;border-radius:6px}
 .barra{height:8px;border-radius:99px;background:var(--acc2);min-width:2px}
 #tbRelEmp tr{cursor:pointer}
 .relp{font-family:Arial,sans-serif;color:#000;background:#fff;font-size:11px}
-.relp h1{font-size:20px;margin:0}.relp .sub{margin:2px 0 10px;font-size:12px}
+.relp h1{font-size:20px;margin:0}.relp h1 img{height:30px;vertical-align:middle;margin:-4px 10px 0 0}.relp .sub{margin:2px 0 10px;font-size:12px}
 .relp table{width:100%;border-collapse:collapse;margin-bottom:12px}
 .relp th,.relp td{border:1px solid #999;padding:3px 5px;text-align:left;white-space:normal;color:#000}
 .relp th{background:#eee;font-size:10px;text-transform:uppercase}
@@ -311,7 +314,7 @@ tr.oculto td{opacity:.55}
 </head>
 <body>
 <header>
-  <div class="logo">⚖ <span id="empresa">BALANÇA TRANSTINO</span></div>
+  <div class="logo"><img src="/logo-icone.svg" alt=""><span id="empresa">BALANÇA TRANSTINO</span></div>
   <nav id="nav">
     <button data-tab="dashboard">Dashboard</button>
     <button data-tab="pesagem" class="on">Pesagem</button>
@@ -1596,7 +1599,7 @@ function htmlTicket(t, comFoto) {
     ? `<b>Empresa</b> ${esc(t.empresa_nome)}${t.motorista ? `<br>Motorista ${esc(t.motorista)} prestando serviço` : ''}`
     : `<b>Próprio motorista</b><br>${esc(t.pagador_nome || t.motorista)}`;
   return `<div class="tkp">
-  <h1>${esc(CFG.empresa || 'BALANÇA TRANSTINO')}</h1>
+  <h1><img src="/logo.svg" alt="${esc(CFG.empresa || 'BALANÇA TRANSTINO')}"></h1>
   <table>
     <tr><td style="width:62%" colspan="2"><span class="h">TICKET DE PESAGEM</span> &nbsp;&nbsp; <span class="big">${String(t.id).padStart(2, '0')}</span></td>
         <td colspan="2">Ticket ${t.status === 'ENCERRADO' ? 'Encerrado' : esc(t.status)}</td></tr>
@@ -2163,7 +2166,7 @@ $('#relImp').onclick = () => {
   const t = REL.totais, per = `${dataBR(REL.inicio).slice(0, 10)} a ${dataBR(REL.fim).slice(0, 10)}`;
   const linhaTab = (cab, linhas, rodape) => `<table><thead><tr>${cab.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody>${rodape ? `<tfoot>${rodape}</tfoot>` : ''}</table>`;
   $('#print-area').innerHTML = `<div class="relp">
-    <h1>${esc(CFG.empresa)} — Relatório de pesagens</h1>
+    <h1><img src="/logo-icone.svg" alt="">${esc(CFG.empresa)} — Relatório de pesagens</h1>
     <div class="sub">Período: <b>${per}</b>${REL.empresa ? ` · Empresa: <b>${esc(REL.empresa)}</b>` : ''}${REL.motorista ? ` · Motorista: <b>${esc(REL.motorista)}</b>` : ''}${REL.pagador ? ` · Quem paga: <b>${esc(REL.pagador)}</b>` : ''}${REL.q ? ` · Filtro: <b>${esc(REL.q)}</b>` : ''} · Emitido em ${new Date().toLocaleString('pt-BR')}</div>
     <div class="kp"><span>Pesagens: <b>${t.pesagens}</b></span><span>Líquido total: <b>${fmt(t.liquido)} kg</b></span>
       <span>Média: <b>${fmt(Math.round(t.media))} kg</b></span><span>Caminhões: <b>${t.caminhoes}</b></span></div>
@@ -2713,7 +2716,7 @@ function imprimirFechamento(x) {
   const liq = x.linhas.reduce((a, l) => a + (l.liquido || 0), 0);
   const tab = (cab, linhas, rod) => `<table><thead><tr>${cab.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody>${rod ? `<tfoot>${rod}</tfoot>` : ''}</table>`;
   $('#print-area').innerHTML = `<div class="relp">
-    <h1>${esc(CFG.empresa)} — ${esc(x.titulo)}</h1>
+    <h1><img src="/logo-icone.svg" alt="">${esc(CFG.empresa)} — ${esc(x.titulo)}</h1>
     <div class="sub">Período: <b>${per}</b> · Emitido em ${new Date().toLocaleString('pt-BR')}${x.situacao ? ` · Situação: <b>${x.situacao}</b>` : ''}</div>
     <table><tbody><tr><td style="width:60%"><b>${x.tipo === 'EMPRESA' ? 'EMPRESA' : 'MOTORISTA / PROPRIETÁRIO'}:</b> <span style="font-size:15px;font-weight:700">${esc(x.pagador)}</span>
       ${e ? `<br>${[e.documento && 'CNPJ/CPF: ' + esc(e.documento), e.telefone && 'Tel.: ' + esc(e.telefone), e.email && esc(e.email)].filter(Boolean).join(' · ')}${e.endereco ? '<br>' + esc(e.endereco) : ''}` : ''}</td>

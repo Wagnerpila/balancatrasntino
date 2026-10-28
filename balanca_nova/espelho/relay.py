@@ -54,24 +54,29 @@ def agente_online():
     return ESTADO["aguardando"] > 0 or time.time() - ESTADO["ultimo_contato"] < OFFLINE_APOS
 
 
+ICONE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjAgMTIwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkJhbGFuw6dhIFRyYW5zdGlubyI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJidC1mdW5kbyIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzM0Yzc1OSIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFiN2EzYSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiByeD0iMjYiIGZpbGw9InVybCgjYnQtZnVuZG8pIi8+PHJlY3QgeD0iMzgiIHk9IjE0IiB3aWR0aD0iNDQiIGhlaWdodD0iMjAiIHJ4PSI1IiBmaWxsPSIjMGQxYjJhIi8+PHJlY3QgeD0iNDQiIHk9IjIwIiB3aWR0aD0iNSIgaGVpZ2h0PSI4IiByeD0iMSIgZmlsbD0iIzVkZmY4ZiIvPjxyZWN0IHg9IjUyIiB5PSIyMCIgd2lkdGg9IjUiIGhlaWdodD0iOCIgcng9IjEiIGZpbGw9IiM1ZGZmOGYiLz48cmVjdCB4PSI2MCIgeT0iMjAiIHdpZHRoPSI1IiBoZWlnaHQ9IjgiIHJ4PSIxIiBmaWxsPSIjNWRmZjhmIi8+PHJlY3QgeD0iNjgiIHk9IjI1IiB3aWR0aD0iOCIgaGVpZ2h0PSIzIiByeD0iMSIgZmlsbD0iIzVkZmY4ZiIvPjxyZWN0IHg9IjE0IiB5PSI0NiIgd2lkdGg9IjU2IiBoZWlnaHQ9IjMwIiByeD0iNCIgZmlsbD0iI2ZmZmZmZiIvPjxwYXRoIGQ9Ik03MyA1MmgxN2wxMCAxM3YxMUg3M3oiIGZpbGw9IiNmZmZmZmYiLz48cGF0aCBkPSJNNzggNTZoMTBsNiA4SDc4eiIgZmlsbD0iIzFiN2EzYSIvPjxjaXJjbGUgY3g9IjI4IiBjeT0iODAiIHI9IjgiIGZpbGw9IiMwZDFiMmEiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+PGNpcmNsZSBjeD0iNTQiIGN5PSI4MCIgcj0iOCIgZmlsbD0iIzBkMWIyYSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjMiLz48Y2lyY2xlIGN4PSI4OCIgY3k9IjgwIiByPSI4IiBmaWxsPSIjMGQxYjJhIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMyIvPjxyZWN0IHg9IjgiIHk9IjkxIiB3aWR0aD0iMTA0IiBoZWlnaHQ9IjgiIHJ4PSIzIiBmaWxsPSIjMGQxYjJhIi8+PHBhdGggZD0iTTIwIDk5aDEwbC0zIDloLTR6TTkwIDk5aDEwbC0zIDloLTR6IiBmaWxsPSIjMGQxYjJhIi8+PC9zdmc+"
+LOGO = """<svg style="width:100%;max-width:280px;height:auto;display:block;margin:0 auto 18px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 120" role="img" aria-label="Balança Transtino — Pesagem rodoviária"><defs><linearGradient id="bt-fundo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34c759"/><stop offset="1" stop-color="#1b7a3a"/></linearGradient></defs><rect width="120" height="120" rx="26" fill="url(#bt-fundo)"/><rect x="38" y="14" width="44" height="20" rx="5" fill="#0d1b2a"/><rect x="44" y="20" width="5" height="8" rx="1" fill="#5dff8f"/><rect x="52" y="20" width="5" height="8" rx="1" fill="#5dff8f"/><rect x="60" y="20" width="5" height="8" rx="1" fill="#5dff8f"/><rect x="68" y="25" width="8" height="3" rx="1" fill="#5dff8f"/><rect x="14" y="46" width="56" height="30" rx="4" fill="#ffffff"/><path d="M73 52h17l10 13v11H73z" fill="#ffffff"/><path d="M78 56h10l6 8H78z" fill="#1b7a3a"/><circle cx="28" cy="80" r="8" fill="#0d1b2a" stroke="#ffffff" stroke-width="3"/><circle cx="54" cy="80" r="8" fill="#0d1b2a" stroke="#ffffff" stroke-width="3"/><circle cx="88" cy="80" r="8" fill="#0d1b2a" stroke="#ffffff" stroke-width="3"/><rect x="8" y="91" width="104" height="8" rx="3" fill="#0d1b2a"/><path d="M20 99h10l-3 9h-4zM90 99h10l-3 9h-4z" fill="#0d1b2a"/><g font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-weight="800"><text x="140" y="56" font-size="40" fill="#ffffff" letter-spacing="1">BALANÇA</text><text x="140" y="96" font-size="40" fill="#3fb950" letter-spacing="1">TRANSTINO</text></g><rect x="140" y="106" width="250" height="3" rx="1.5" fill="#1f9a46" opacity=".35"/></svg>"""
+
 PAGINA_LOGIN = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Balança Transtino</title>
+<link rel="icon" href="%ICONE%">
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0d1117;
 font-family:Segoe UI,Arial,sans-serif;color:#e6edf3}form{background:#161b22;border:1px solid #30363d;border-radius:14px;
 padding:28px;width:min(340px,90vw)}h1{font-size:20px;margin:0 0 18px;color:#3fb950}label{display:block;font-size:13px;
 color:#8b949e;margin:12px 0 4px}input{width:100%;box-sizing:border-box;padding:11px;border-radius:9px;border:1px solid #30363d;
 background:#0d1117;color:#e6edf3;font-size:15px}button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:9px;
 background:#238636;color:#fff;font-weight:700;font-size:15px;cursor:pointer}.e{color:#ff7b72;font-size:13px;margin-top:10px}</style>
-</head><body><form method="post" action="/_login"><h1>⚖ Balança Transtino</h1>
+</head><body><form method="post" action="/_login">%LOGO%
 <label>Usuário</label><input name="usuario" autocomplete="username" autofocus>
 <label>Senha</label><input name="senha" type="password" autocomplete="current-password">
-<button>Entrar</button>%ERRO%</form></body></html>"""
+<button>Entrar</button>%ERRO%</form></body></html>""".replace("%ICONE%", ICONE).replace("%LOGO%", LOGO)
 
-PAGINA_OFFLINE = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Balança Transtino</title></head>
+PAGINA_OFFLINE = """<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Balança Transtino</title>
+<link rel="icon" href="%ICONE%"></head>
 <body style="font-family:Segoe UI,Arial;background:#0d1117;color:#e6edf3;display:flex;align-items:center;justify-content:center;min-height:100vh">
-<div style="text-align:center"><h1>⚠️ Computador da balança sem conexão</h1>
+<div style="text-align:center">%LOGO%<h1>⚠️ Computador da balança sem conexão</h1>
 <p>O sistema roda no computador da balança e ele não está conectado à internet agora.<br>
-A pesagem continua funcionando lá. Tente de novo em alguns minutos.</p><a style="color:#58a6ff" href="/">Tentar de novo</a></div></body></html>"""
+A pesagem continua funcionando lá. Tente de novo em alguns minutos.</p><a style="color:#58a6ff" href="/">Tentar de novo</a></div></body></html>""".replace("%ICONE%", ICONE).replace("%LOGO%", LOGO)
 
 
 class Handler(BaseHTTPRequestHandler):

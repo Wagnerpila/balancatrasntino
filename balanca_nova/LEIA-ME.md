@@ -245,3 +245,10 @@ Fica em `config.json`: porta, caminho do banco, URL da balança, nome da empresa
 - `pagina.js` roda no mundo da página. Durante o envio, faz a aba se comportar como visível e entrega as imagens
   ao "Anexar → Fotos e vídeos" no lugar da janela de escolher arquivos do Windows.
 - Depois de mudar a extensão: em chrome://extensions clicar em ↻ e dar F5 na aba do WhatsApp.
+
+## Logo e guia
+- Logo em `static/logo.svg` (fundo claro), `static/logo-escuro.svg` (fundo escuro) e `static/logo-icone.svg` (ícone).
+  Aparece na tela, no ícone da aba, no ticket (impressão e imagem do WhatsApp), nos relatórios, nas faturas e na tela de login do domínio.
+  No espelho (`espelho/relay.py`), a logo vai dentro do próprio arquivo.
+- Guia rápido em PDF: `docs/Guia_Balanca_Transtino.pdf`. Para editar, mude `docs/guia.html` e gere de novo com o Chrome:
+  `chrome --headless=new --no-pdf-header-footer --print-to-pdf=docs/Guia_Balanca_Transtino.pdf docs/guia.html`

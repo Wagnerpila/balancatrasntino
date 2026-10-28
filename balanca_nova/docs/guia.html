@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Guia rápido — Balança Transtino</title>
+<style>
+@page { size: A4; margin: 0; }
+:root { --verde: #1f9a46; --verde2: #34c759; --azul: #0d1b2a; --cinza: #5b6675; --linha: #d9dee5; --fundo: #f4f7f5; --amarelo: #f4b400; --vermelho: #d93025; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: var(--azul); font-size: 12.5px; line-height: 1.4; }
+.pagina { width: 210mm; height: 297mm; padding: 14mm 15mm 12mm; position: relative; page-break-after: always; overflow: hidden; }
+.pagina:last-child { page-break-after: auto; }
+.topo { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--verde); padding-bottom: 8px; margin-bottom: 14px; }
+.topo img { height: 46px; }
+.topo .t { text-align: right; color: var(--cinza); font-size: 11px; }
+.topo .t b { display: block; font-size: 15px; color: var(--azul); }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h1 .n { display: inline-block; width: 30px; height: 30px; border-radius: 50%; background: var(--verde); color: #fff; text-align: center; line-height: 30px; font-size: 17px; margin-right: 8px; vertical-align: 2px; }
+.lead { color: var(--cinza); margin: 0 0 14px; font-size: 13px; }
+.rod { position: absolute; bottom: 8mm; left: 15mm; right: 15mm; display: flex; justify-content: space-between; color: #9aa3ad; font-size: 10px; border-top: 1px solid var(--linha); padding-top: 5px; }
+
+/* passos verticais (página 1) */
+.passos { display: flex; flex-direction: column; gap: 0; }
+.passo { display: grid; grid-template-columns: 74px 1fr; gap: 14px; align-items: center; background: var(--fundo); border: 1px solid var(--linha); border-radius: 12px; padding: 10px 14px; }
+.passo .ic { width: 74px; height: 64px; display: flex; align-items: center; justify-content: center; }
+.passo h3 { margin: 0 0 2px; font-size: 14.5px; }
+.passo p { margin: 0; color: #364152; }
+.seta { height: 18px; display: flex; justify-content: center; }
+.aviso { border-left: 5px solid var(--amarelo); background: #fff8e1; border-radius: 8px; padding: 9px 12px; margin-top: 12px; }
+.ok { border-left: 5px solid var(--verde); background: #e9f7ee; border-radius: 8px; padding: 9px 12px; margin-top: 10px; }
+.tag { display: inline-block; background: var(--azul); color: #fff; border-radius: 5px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+code { background: #eef1f4; border-radius: 4px; padding: 0 4px; font-size: 11.5px; }
+
+/* fluxograma (página 2) */
+.fluxo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.caixa { border: 2px solid var(--verde); border-radius: 12px; padding: 8px 10px; background: #fff; display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: center; position: relative; }
+.caixa .num { width: 30px; height: 30px; border-radius: 50%; background: var(--verde); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.caixa > div > b:first-child { font-size: 13.5px; display: block; }
+.caixa span { color: #364152; font-size: 11.5px; }
+.caixa.destaque { border-color: var(--amarelo); background: #fffbeb; }
+.caixa.destaque .num { background: var(--amarelo); color: var(--azul); }
+.col { display: flex; flex-direction: column; }
+.desce { height: 16px; display: flex; justify-content: center; }
+.foto { border: 1px solid var(--linha); border-radius: 10px; overflow: hidden; }
+.foto img { width: 100%; display: block; }
+.legenda { font-size: 10.5px; color: var(--cinza); padding: 5px 8px; background: var(--fundo); }
+.problema { border: 2px dashed var(--vermelho); border-radius: 12px; padding: 10px 12px; margin-top: 14px; display: grid; grid-template-columns: 60px 1fr; gap: 12px; align-items: center; }
+
+/* acesso externo (página 3) */
+.diagrama { width: 100%; }
+.duas { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+.lista { margin: 4px 0 0; padding-left: 18px; }
+.lista li { margin: 3px 0; }
+table.prob { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11.5px; }
+table.prob th { text-align: left; background: var(--azul); color: #fff; padding: 5px 8px; }
+table.prob td { border-bottom: 1px solid var(--linha); padding: 5px 8px; vertical-align: top; }
+table.prob tr:nth-child(even) td { background: var(--fundo); }
+.link { font-size: 15px; font-weight: 800; color: var(--verde); }
+</style>
+</head>
+<body>
+
+<!-- ======================= PÁGINA 1 ======================= -->
+<section class="pagina">
+  <div class="topo"><img src="img/logo.svg" alt="Balança Transtino">
+    <div class="t"><b>Guia rápido do sistema</b>Pesagem · Câmera · WhatsApp · Acesso pela internet</div></div>
+
+  <h1><span class="n">1</span>Deixar funcionando neste computador</h1>
+  <p class="lead">Faça na ordem, todo dia ao ligar o computador da balança. Leva 2 minutos.</p>
+
+  <div class="passos">
+    <div class="passo">
+      <div class="ic"><svg width="70" height="60" viewBox="0 0 70 60">
+        <rect x="2" y="4" width="40" height="28" rx="3" fill="#0d1b2a"/><rect x="6" y="8" width="32" height="20" rx="1" fill="#34c759"/>
+        <rect x="16" y="32" width="12" height="6" fill="#0d1b2a"/><rect x="10" y="38" width="24" height="3" rx="1" fill="#0d1b2a"/>
+        <rect x="46" y="14" width="22" height="18" rx="3" fill="#0d1b2a"/><rect x="49" y="18" width="16" height="7" rx="1" fill="#5dff8f"/>
+        <circle cx="57" cy="48" r="8" fill="#fff" stroke="#0d1b2a" stroke-width="3"/><circle cx="57" cy="48" r="3" fill="#0d1b2a"/><rect x="54" y="34" width="6" height="7" fill="#0d1b2a"/>
+      </svg></div>
+      <div><h3>Ligue o computador, o indicador da balança, a câmera e a impressora</h3>
+        <p>O indicador da balança (WT27R) fica no cabo da COM3 e o Windows lê o peso sozinho. A câmera fica no IP 192.168.100.29 e a impressora é a EPSON L395, que precisa estar com papel.</p></div>
+    </div>
+    <div class="seta"><svg width="20" height="18"><path d="M10 0v12M4 8l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+    <div class="passo">
+      <div class="ic"><img src="img/logo-icone.svg" width="56" alt=""></div>
+      <div><h3>Dê dois cliques no atalho <span class="tag">Pesagem Transtino</span> da Área de Trabalho</h3>
+        <p>Abre uma <b>janela preta</b>, que é o sistema rodando. <b>Não feche essa janela</b>: pode minimizar. Também abre a câmera e a conexão com a internet.</p></div>
+    </div>
+    <div class="seta"><svg width="20" height="18"><path d="M10 0v12M4 8l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+    <div class="passo">
+      <div class="ic"><svg width="70" height="60" viewBox="0 0 70 60">
+        <rect x="3" y="6" width="64" height="46" rx="5" fill="#fff" stroke="#0d1b2a" stroke-width="3"/><rect x="3" y="6" width="64" height="10" rx="5" fill="#0d1b2a"/>
+        <circle cx="10" cy="11" r="2" fill="#f4b400"/><circle cx="17" cy="11" r="2" fill="#34c759"/>
+        <text x="35" y="40" text-anchor="middle" font-size="16" font-weight="800" fill="#1f9a46" font-family="Consolas,monospace">1.530</text>
+      </svg></div>
+      <div><h3>A tela de pesagem abre no navegador</h3>
+        <p>O endereço é <code>http://127.0.0.1:8090</code>. Se a tela estiver estranha, aperte <b>Ctrl+F5</b>. Confira no canto direito, em cima, se a bolinha <b>Balança</b> está <b style="color:#1f9a46">verde</b>.</p></div>
+    </div>
+    <div class="seta"><svg width="20" height="18"><path d="M10 0v12M4 8l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+    <div class="passo">
+      <div class="ic"><svg width="62" height="62" viewBox="0 0 62 62">
+        <circle cx="31" cy="30" r="26" fill="#25d366"/><path d="M12 56l5-14" stroke="#25d366" stroke-width="8" stroke-linecap="round"/>
+        <path d="M22 20c0 12 8 20 20 22l4-5-6-4-3 3c-4-2-7-5-9-9l3-3-4-6z" fill="#fff"/>
+      </svg></div>
+      <div><h3>Deixe o WhatsApp Web aberto no Chrome, no perfil <span class="tag">Balança Transtino</span></h3>
+        <p>A extensão <b>"Balança Transtino — Avisos no WhatsApp"</b> manda os avisos e os tickets por essa aba. Ela pode ficar <b>em segundo plano</b>, mas não pode ser fechada.</p></div>
+    </div>
+  </div>
+
+  <div class="ok"><b>✔ Tudo certo quando:</b> a bolinha Balança está verde, o peso aparece na tela, a câmera mostra a imagem quando o caminhão sobe e, em
+    <b>Configurações → Aviso no WhatsApp</b>, aparece <b>🟢 WhatsApp Web conectado</b>.</div>
+  <div class="aviso"><b>⚠ Atenção:</b> sempre que alguém mexer na extensão, entre em <code>chrome://extensions</code>, clique em <b>↻</b> e depois aperte <b>F5</b> na aba do WhatsApp.
+    Depois de atualizar o sistema, feche a janela preta e abra o atalho de novo, com a balança vazia.</div>
+
+  <b style="font-size:14px;display:block;margin-top:16px">Endereços e pastas úteis</b>
+  <table class="prob">
+    <tr><th style="width:36%">O quê</th><th>Onde</th></tr>
+    <tr><td>Tela de pesagem (neste computador)</td><td><code>http://127.0.0.1:8090</code></td></tr>
+    <tr><td>Acesso pela internet</td><td><code>https://balancatranstino.wcmdigital.com.br</code> (usuário e senha)</td></tr>
+    <tr><td>Pasta do sistema</td><td><code>Área de Trabalho\testes-main\balanca_nova</code></td></tr>
+    <tr><td>Extensão do WhatsApp</td><td><code>balanca_nova\whatsapp_extensao</code> (instalada no Chrome em <code>chrome://extensions</code>)</td></tr>
+    <tr><td>Backups automáticos do banco</td><td><code>C:\Backups</code> (a cada 6 horas)</td></tr>
+    <tr><td>Fotos da câmera dos tickets</td><td><code>balanca_nova\fotos</code></td></tr>
+  </table>
+
+  <div class="rod"><span>Balança Transtino — Guia rápido</span><span>1 / 3</span></div>
+</section>
+
+<!-- ======================= PÁGINA 2 ======================= -->
+<section class="pagina">
+  <div class="topo"><img src="img/logo.svg" alt="Balança Transtino">
+    <div class="t"><b>Guia rápido do sistema</b>Pesagem · Câmera · WhatsApp · Acesso pela internet</div></div>
+
+  <h1><span class="n">2</span>Como a pesagem funciona</h1>
+  <p class="lead">Tudo é automático. O operador só acompanha e entra em ação se aparecer um aviso.</p>
+
+  <div class="fluxo">
+    <div class="col">
+      <div class="caixa"><div class="num">1</div><div><b>🚛 O caminhão sobe na balança</b><span>O peso passa de 100 kg e a câmera aparece na tela.</span></div></div>
+      <div class="desce"><svg width="20" height="16"><path d="M10 0v10M4 6l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+      <div class="caixa"><div class="num">2</div><div><b>💬 Aviso no WhatsApp</b><span>Sai "Caminhão entrou na balança" com placa, motorista, peso e o link para acompanhar.</span></div></div>
+      <div class="desce"><svg width="20" height="16"><path d="M10 0v10M4 6l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+      <div class="caixa"><div class="num">3</div><div><b>📷 A câmera lê a placa</b><span>O cadastro é carregado: motorista, empresa, carga e a TARA.</span></div></div>
+      <div class="desce"><svg width="20" height="16"><path d="M10 0v10M4 6l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+      <div class="caixa destaque"><div class="num">4</div><div><b>⏱ Contagem de 10 segundos</b><span>Aparece um contador grande sobre a câmera, e o botão <b>"⚖ Balança"</b> fica <b>travado</b>. Para parar, use <b>✋ Cancelar automático</b>.</span></div></div>
+      <div class="desce"><svg width="20" height="16"><path d="M10 0v10M4 6l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+      <div class="caixa"><div class="num">5</div><div><b>⚖ O peso é capturado</b><span>Como estiver, <b>mesmo instável</b>. Líquido = peso − TARA.</span></div></div>
+    </div>
+    <div class="col">
+      <div class="foto"><img src="img/contagem.png" alt="Contador da pesagem automática"><div class="legenda">Tela durante a contagem: o quadro amarelo mostra os segundos que faltam.</div></div>
+      <div class="desce"></div>
+      <div class="caixa"><div class="num">6</div><div><b>🖨 Ticket encerrado e impresso</b><span>O quadro fica verde. O botão "Balança" volta a funcionar 10 s depois.</span></div></div>
+      <div class="desce"><svg width="20" height="16"><path d="M10 0v10M4 6l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+      <div class="caixa"><div class="num">7</div><div><b>📲 O motorista recebe o ticket</b><span>Vai para o telefone do cadastro: o resumo, a imagem do ticket e a <b>foto da câmera</b> do momento em que a placa foi lida.</span></div></div>
+      <div class="desce"><svg width="20" height="16"><path d="M10 0v10M4 6l6 8 6-8" stroke="#1f9a46" stroke-width="3" fill="none"/></svg></div>
+      <div class="caixa"><div class="num">8</div><div><b>✅ O caminhão sai</b><span>A balança fica vazia e o sistema já espera o próximo.</span></div></div>
+    </div>
+  </div>
+
+  <div class="problema">
+    <svg width="58" height="54" viewBox="0 0 58 54"><path d="M29 3L56 50H2z" fill="#d93025"/><rect x="26" y="18" width="6" height="18" rx="2" fill="#fff"/><circle cx="29" cy="42" r="3.5" fill="#fff"/></svg>
+    <div><b style="font-size:13.5px">Quando aparece uma faixa de aviso na tela</b><br>
+      A placa não foi lida, a placa não tem cadastro, o cadastro está sem TARA ou a pesagem não foi salva: o automático para e o operador termina à mão.
+      <b>1)</b> busque ou corrija o cadastro → <b>2)</b> confira a TARA → <b>3)</b> clique em <b>⚖ Balança</b> → <b>4)</b> clique em <b>"Encerrar e imprimir"</b>.
+      Se o cadastro for salvo com o caminhão ainda na balança, a contagem recomeça sozinha. Tudo fica registrado em <b>Configurações → Log de falhas</b>.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:14px;margin-top:14px;align-items:center">
+    <div class="foto"><img src="img/ticket.png" alt="Ticket de pesagem" style="height:150px;object-fit:cover;object-position:top"><div class="legenda">Ticket com a logo: sai na impressora e vai como imagem no WhatsApp do motorista.</div></div>
+    <div><b style="font-size:13.5px">O que o motorista recebe no WhatsApp</b>
+      <ol class="lista"><li>O resumo: placa, motorista, empresa, carga, bruto, tara e <b>líquido</b>.</li>
+        <li>A <b>imagem do ticket</b>.</li><li>A <b>foto da câmera</b> com o caminhão na balança.</li></ol>
+      <p style="margin:6px 0 0;color:#5b6675;font-size:11.5px">Só vai para quem tem telefone com DDD no cadastro.
+        Para testar sem gravar pesagem: <b>Configurações → Aviso no WhatsApp → Enviar ticket de teste</b>.</p></div>
+  </div>
+
+  <div class="rod"><span>Balança Transtino — Guia rápido</span><span>2 / 3</span></div>
+</section>
+
+<!-- ======================= PÁGINA 3 ======================= -->
+<section class="pagina">
+  <div class="topo"><img src="img/logo.svg" alt="Balança Transtino">
+    <div class="t"><b>Guia rápido do sistema</b>Pesagem · Câmera · WhatsApp · Acesso pela internet</div></div>
+
+  <h1><span class="n">3</span>Acesso pela internet</h1>
+  <p class="lead">De qualquer lugar, pelo celular ou pelo computador: <span class="link">https://balancatranstino.wcmdigital.com.br</span></p>
+
+  <svg class="diagrama" viewBox="0 0 720 210">
+    <defs><marker id="pt" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1f9a46"/></marker></defs>
+    <!-- computador da balança -->
+    <rect x="10" y="30" width="200" height="150" rx="14" fill="#f4f7f5" stroke="#1f9a46" stroke-width="2.5"/>
+    <rect x="70" y="48" width="80" height="54" rx="4" fill="#0d1b2a"/><rect x="76" y="54" width="68" height="42" fill="#34c759"/>
+    <rect x="102" y="102" width="16" height="8" fill="#0d1b2a"/><rect x="88" y="110" width="44" height="4" rx="2" fill="#0d1b2a"/>
+    <text x="110" y="136" text-anchor="middle" font-size="14" font-weight="800" fill="#0d1b2a" font-family="Segoe UI">Computador da balança</text>
+    <text x="110" y="154" text-anchor="middle" font-size="11.5" fill="#364152" font-family="Segoe UI">sistema + banco de dados</text>
+    <text x="110" y="169" text-anchor="middle" font-size="11.5" fill="#364152" font-family="Segoe UI">(tudo fica aqui)</text>
+    <!-- seta 1 -->
+    <line x1="214" y1="105" x2="266" y2="105" stroke="#1f9a46" stroke-width="3" marker-end="url(#pt)"/>
+    <text x="240" y="92" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1f9a46" font-family="Segoe UI">conecta</text>
+    <!-- nuvem / espelho -->
+    <path d="M300 130c-26 0-30-38-4-42 2-26 40-34 54-12 10-18 46-14 48 10 26-2 34 40 6 44z" fill="#e9f7ee" stroke="#1f9a46" stroke-width="2.5"/>
+    <text x="354" y="112" text-anchor="middle" font-size="13" font-weight="800" fill="#0d1b2a" font-family="Segoe UI">Espelho na internet</text>
+    <text x="354" y="160" text-anchor="middle" font-size="11" fill="#364152" font-family="Segoe UI">servidor (VPS / Easypanel)</text>
+    <text x="354" y="175" text-anchor="middle" font-size="11" fill="#364152" font-family="Segoe UI">pede usuário e senha 🔒</text>
+    <!-- seta 2 -->
+    <line x1="506" y1="105" x2="450" y2="105" stroke="#1f9a46" stroke-width="3" marker-end="url(#pt)"/>
+    <text x="478" y="92" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1f9a46" font-family="Segoe UI">abre o link</text>
+    <!-- celular e notebook -->
+    <rect x="510" y="30" width="200" height="150" rx="14" fill="#f4f7f5" stroke="#1f9a46" stroke-width="2.5"/>
+    <rect x="540" y="48" width="38" height="66" rx="7" fill="#0d1b2a"/><rect x="544" y="56" width="30" height="48" rx="2" fill="#34c759"/>
+    <rect x="596" y="58" width="74" height="46" rx="4" fill="#0d1b2a"/><rect x="601" y="63" width="64" height="36" fill="#34c759"/><rect x="588" y="104" width="90" height="6" rx="3" fill="#0d1b2a"/>
+    <text x="610" y="140" text-anchor="middle" font-size="14" font-weight="800" fill="#0d1b2a" font-family="Segoe UI">Celular ou computador</text>
+    <text x="610" y="158" text-anchor="middle" font-size="11.5" fill="#364152" font-family="Segoe UI">em qualquer lugar,</text>
+    <text x="610" y="173" text-anchor="middle" font-size="11.5" fill="#364152" font-family="Segoe UI">com internet</text>
+  </svg>
+
+  <div class="duas">
+    <div>
+      <b style="font-size:14px">Como entrar</b>
+      <ol class="lista">
+        <li>Abra o link no navegador do celular ou do computador.</li>
+        <li>Digite o <b>usuário</b> e a <b>senha</b> do espelho (peça ao responsável).</li>
+        <li>Veja a pesagem ao vivo, a câmera, os tickets e os relatórios.</li>
+      </ol>
+      <b style="font-size:14px;display:block;margin-top:10px">Bom saber</b>
+      <ul class="lista">
+        <li><b>Sem internet na balança, a pesagem continua normal.</b> O link mostra "computador da balança sem conexão".</li>
+        <li>A pesagem automática roda <b>só no computador da balança</b>. Pela internet, só se acompanha.</li>
+        <li>Pela internet <b>não</b> dá para fazer backup nem mudar as configurações.</li>
+        <li>O computador da balança precisa estar ligado e com o atalho aberto.</li>
+      </ul>
+    </div>
+    <div class="foto" style="align-self:start"><img src="img/login_recorte.png" alt="Tela de login">
+      <div class="legenda">Tela de entrada do link, com usuário e senha.</div></div>
+  </div>
+
+  <b style="font-size:14px;display:block;margin-top:12px">Se algo não funcionar</b>
+  <table class="prob">
+    <tr><th style="width:36%">O que acontece</th><th>O que fazer</th></tr>
+    <tr><td>A tela de pesagem não abre</td><td>Abra o atalho <b>Pesagem Transtino</b> e confira se a janela preta está aberta.</td></tr>
+    <tr><td>A bolinha Balança está vermelha ou não aparece peso</td><td>Confira se o indicador está ligado e o cabo na COM3. Reinicie o computador se continuar.</td></tr>
+    <tr><td>O WhatsApp não mandou o aviso ou o ticket</td><td>Veja se a aba do WhatsApp Web está aberta no perfil Balança Transtino e confira <b>Configurações → Aviso no WhatsApp</b> e o Log de falhas. O cadastro precisa ter telefone com DDD.</td></tr>
+    <tr><td>O ticket não imprimiu</td><td>Ligue a impressora e ponha papel. Depois clique em <b>"Imprimir ticket Nº …"</b> na tela.</td></tr>
+    <tr><td>O link mostra "sem conexão"</td><td>O computador da balança está desligado, sem internet ou com o atalho fechado.</td></tr>
+  </table>
+
+  <div class="rod"><span>Balança Transtino — Guia rápido · gerado em 28/10/2026</span><span>3 / 3</span></div>
+</section>
+
+</body>
+</html>
