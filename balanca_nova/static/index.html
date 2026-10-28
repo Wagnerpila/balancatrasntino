@@ -55,6 +55,20 @@ main{padding:20px;max-width:1500px;margin:0 auto}
 .cam-box .cam-msg{padding:10px 12px;font-size:13px;color:#cbd5e1;background:#0b0f14;border-top:1px solid #1f2937;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .cam-box .cam-msg .spacer{flex:1}
 .cam-box.auto .cam-msg{background:#1e3a5f;color:#fff}
+.selbar{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:10px 12px;margin-bottom:10px;
+  background:var(--card2);border:1px solid var(--blue);border-radius:10px}
+.selbar .f{margin:0;flex:1;min-width:120px}.selbar>b{align-self:center;margin-right:6px}
+tr.sel-on td{background:rgba(88,166,255,.08)}
+td.acts{white-space:nowrap;width:1%}
+td.wrap{white-space:normal;min-width:120px}
+/* alerta para o operador finalizar à mão */
+.alerta-op{display:flex;gap:14px;align-items:center;background:#7f1d1d;border:2px solid #f87171;color:#fff;padding:14px 18px;
+  border-radius:var(--r);margin-bottom:16px;font-size:16px;animation:pisca .6s 4 alternate}
+.alerta-op[hidden]{display:none}.alerta-op .ic{font-size:30px}.alerta-op>div{flex:1}
+@keyframes pisca{from{box-shadow:0 0 0 0 rgba(248,113,113,.9)}to{box-shadow:0 0 0 10px rgba(248,113,113,0)}}
+/* página usada só para montar a imagem do ticket na impressão direta */
+.modo-img header,.modo-img main,.modo-img #toasts,.modo-img .modal-bg{display:none!important}
+.modo-img body{background:#fff;margin:0;padding:8mm 0}.modo-img #print-area{display:block}
 .cam-box .contagem{font:800 20px Consolas,monospace;color:#ffd77a}
 .estavel{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:1px}
 .estavel.s{background:#1e5a30;color:#9effb5}.estavel.i{background:#5a4a1e;color:#ffd77a}.estavel.x{background:#5a1e1e;color:#ffb3b3}
@@ -311,6 +325,8 @@ tr.oculto td{opacity:.55}
 <main>
 <!-- ================= PESAGEM ================= -->
 <section class="tab on" id="tab-pesagem">
+  <div class="alerta-op" id="alertaOp" hidden><span class="ic">⚠️</span><div id="alertaTxt"></div>
+    <button class="btn" id="alertaOk">OK, entendi</button></div>
   <div class="grid">
     <div>
       <div class="scale off" id="scale">
@@ -458,7 +474,7 @@ tr.oculto td{opacity:.55}
     <h3>🎫 Tickets do sistema novo <span class="spacer"></span>
       <input id="buscaTickets" placeholder="Buscar placa, motorista, nº…" style="width:260px"></h3>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Nº</th><th>Status</th><th>Placa</th><th>Empresa</th><th>Motorista</th><th>Cobrança</th><th>Item</th><th>Inicial</th><th>Final</th><th>Líquido</th><th>Data</th><th></th></tr></thead>
+      <thead><tr><th></th><th>Nº</th><th>Status</th><th>Placa</th><th>Empresa</th><th>Motorista</th><th>Cobrança</th><th>Item</th><th>Inicial</th><th>Final</th><th>Líquido</th><th>Data</th></tr></thead>
       <tbody id="tbTickets"></tbody>
     </table></div>
   </div>
@@ -493,8 +509,17 @@ tr.oculto td{opacity:.55}
   <div class="card">
     <h3>📚 Pesagens do sistema antigo (pesagem_pesagem) <span class="spacer"></span>
       <input id="buscaHist" placeholder="Buscar placa ou nome…" style="width:260px"></h3>
+    <p class="muted" style="font-size:12px;margin:-6px 0 10px">Marque as pesagens (☑) para gerar o PDF e mandar ao cliente. A seleção continua mesmo trocando a busca.</p>
+    <div class="selbar" id="hsBar" hidden>
+      <b id="hsInfo"></b>
+      <div class="f"><label>Nome do cliente no PDF</label><input id="hsNome" list="dlEmpresas"></div>
+      <div class="f" style="max-width:150px"><label>Cobrar</label><select id="hsTipo"><option value="pesagem">Por pesagem</option><option value="tonelada">Por tonelada</option><option value="">Sem valor</option></select></div>
+      <div class="f" style="max-width:120px"><label>Valor (R$)</label><input id="hsValor" inputmode="decimal" placeholder="0,00"></div>
+      <button class="btn sm" id="hsLimpar">Limpar seleção</button>
+      <button class="btn p" id="hsPdf">📄 Gerar PDF das selecionadas</button>
+    </div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>ID</th><th>Data</th><th>Placa</th><th>Nome</th><th>TARA</th><th>Peso final</th><th>Líquido</th><th>Origem</th><th></th></tr></thead>
+      <thead><tr><th><input type="checkbox" class="ck" id="hsTodas" title="Marcar todas da lista"></th><th></th><th>ID</th><th>Data</th><th>Placa</th><th>Nome</th><th>TARA</th><th>Peso final</th><th>Líquido</th><th>Origem</th></tr></thead>
       <tbody id="tbHist"></tbody>
     </table></div>
   </div>
@@ -702,6 +727,7 @@ tr.oculto td{opacity:.55}
       <div class="row">
         <div class="f"><label>Nº da balança</label><input id="cfgNumBal" type="number"></div>
         <div class="f"><label>Vias por impressão</label><input id="cfgVias" type="number" min="1" max="5"></div>
+        <div class="f" style="flex:2"><label>Impressora da impressão automática</label><select id="cfgImpressora"><option value="">Padrão do Windows</option></select></div>
       </div>
       <div class="f"><label>URL da API da balança</label><input id="cfgBalUrl"></div>
       <div class="f"><label><input type="checkbox" id="cfgUnica" style="width:auto"> Pesagem única: TARA do cadastro + peso da balança já encerra o ticket (sem 2ª pesagem)</label></div>
@@ -736,9 +762,16 @@ tr.oculto td{opacity:.55}
     </div>
     <div class="f"><label><input type="checkbox" id="camLerPlaca" style="width:auto"> Ler a placa e puxar o cadastro sozinho</label></div>
     <div class="f"><label><input type="checkbox" id="camAuto" style="width:auto"> Pesagem automática: com a placa cadastrada e o peso ESTÁVEL, captura o peso e encerra a pesagem sozinho. Dá 5 segundos para cancelar.</label></div>
-    <div class="f"><label><input type="checkbox" id="camImp" style="width:auto"> Imprimir o ticket na pesagem automática</label></div>
+    <div class="f"><label><input type="checkbox" id="camImp" style="width:auto"> Imprimir o ticket na pesagem automática (direto na impressora escolhida em Geral, sem abrir janela)</label></div>
     <button class="btn sm" id="camTeste">Testar câmera</button>
     <pre id="camDebug" style="white-space:pre-wrap;font-size:11px;max-height:220px;overflow:auto;background:var(--bg2);padding:10px;border-radius:8px;margin-top:10px" hidden></pre>
+  </div>
+  <div class="card" id="cardFalhas">
+    <h3>📋 Log de falhas <span class="pill" id="nFalhas"></span><span class="spacer"></span><button class="btn sm" id="falhasAtualizar">↻ Atualizar</button></h3>
+    <p class="muted" style="font-size:12px;margin:0 0 10px">Placa não lida, placa sem cadastro, câmera fora do ar, falha ao salvar ou imprimir… Arquivo: <code>balanca_nova\logs\falhas.log</code></p>
+    <div class="tbl-wrap" style="max-height:340px;overflow:auto"><table>
+      <thead><tr><th>Quando</th><th>Tipo</th><th>Placa</th><th>O que aconteceu</th></tr></thead>
+      <tbody id="tbFalhas"></tbody></table></div>
   </div>
   <div class="card" id="cardBackup">
     <h3>💾 Backup automático do banco <span class="spacer"></span>
@@ -977,6 +1010,8 @@ tr.oculto td{opacity:.55}
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
+// aberto pelo servidor só para montar a imagem do ticket: nada de balança, câmera ou automático aqui
+const MODO_IMG = location.hash.match(/^#ticketimg=(\d+)&foto=(\d)/);
 const fmt = n => (n === null || n === undefined || n === '' || isNaN(n)) ? '—' : Number(n).toLocaleString('pt-BR', {maximumFractionDigits: 2});
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const numero = v => { if (v === null || v === undefined) return null; v = String(v).trim(); if (!v) return null;
@@ -1024,6 +1059,7 @@ setInterval(() => $('#relogio').textContent = new Date().toLocaleString('pt-BR')
 
 // ---------- balança ----------
 async function lerBalanca() {
+  if (MODO_IMG) return;
   try {
     const b = await api('peso'); ESTADO.peso = b;
     $('#scale').classList.toggle('off', !b.ok);
@@ -1160,6 +1196,22 @@ function selecionarCliente(c, viaTag) {
 // ---------- câmera da balança / leitura de placa / pesagem automática ----------
 // fases: ocioso → placa (lendo) → estavel (esperando o peso parar) → contagem (5 s p/ cancelar) → feito (até o caminhão sair)
 const CAM = {fase: 'ocioso', tentativas: 0, lendo: false, estavelDesde: null, timer: null, placa: null, foto: false};
+// alerta grande na tela (com bip) para o operador finalizar à mão; também vai para o log de falhas
+function alertaOperador(msg, tipo, placa, registrar = true) {
+  $('#alertaTxt').innerHTML = msg; $('#alertaOp').hidden = false;
+  if (!$('#tab-pesagem').classList.contains('on') && !$('.modal-bg.on')) irPara('pesagem');
+  window.scrollTo({top: 0, behavior: 'smooth'}); bip();
+  if (registrar) api('falhas', {method: 'POST', body: {tipo, placa: placa || '', mensagem: $('#alertaTxt').innerText}}).catch(() => {});
+}
+$('#alertaOk').onclick = () => $('#alertaOp').hidden = true;
+function bip() {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    [0, .35, .7].forEach(t => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 880; g.gain.value = .25;
+      o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + .2); });
+  } catch (e) {}
+}
+const LIMITE_LEITURAS = 20;  // tentativas de ler a placa antes de pedir para o operador finalizar à mão
 // mesma chave para placa antiga e Mercosul (APZ9171 = APZ9B71), igual ao servidor
 function chavePlaca(p) {
   p = String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1167,11 +1219,12 @@ function chavePlaca(p) {
 }
 function camMsg(txt, auto) { $('#camMsg').innerHTML = txt; $('#camBox').classList.toggle('auto', !!auto); }
 function camResetar() {
-  clearInterval(CAM.timer); Object.assign(CAM, {fase: 'ocioso', tentativas: 0, estavelDesde: null, timer: null, placa: null});
+  clearInterval(CAM.timer); Object.assign(CAM, {fase: 'ocioso', tentativas: 0, estavelDesde: null, timer: null, placa: null,
+    desde: 0, alertaInst: false, ultimoErro: ''});
   $('#camPlaca').hidden = true; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
 }
 function atualizarFoto() {
-  if (CAM.foto || $('#camBox').hidden) return;
+  if (MODO_IMG || CAM.foto || $('#camBox').hidden) return;
   CAM.foto = true; const img = new Image();
   img.onload = () => { $('#camImg').src = img.src; CAM.foto = false; $('#camTag').textContent = '📷 Ao vivo'; };
   img.onerror = () => { CAM.foto = false; $('#camTag').textContent = '📷 Sem imagem da câmera'; };
@@ -1195,9 +1248,14 @@ function cicloCamera() {
     if (!cm.ler_placa) { CAM.fase = 'feito'; camMsg('Caminhão na balança.'); }
     else camMsg('🔍 Lendo a placa…');
   }
-  if (CAM.fase === 'placa' && !CAM.lendo && CAM.tentativas < 30) lerPlacaCamera();
+  if (CAM.fase === 'placa' && !CAM.lendo && CAM.tentativas < LIMITE_LEITURAS) lerPlacaCamera();
   if (CAM.fase === 'estavel') {
-    if (!b.estavel) { CAM.estavelDesde = null; camMsg(`Placa <b>${esc(CAM.placa)}</b> — aguardando o peso ficar <b>ESTÁVEL</b>…`, true); return; }
+    if (!b.estavel) {
+      CAM.estavelDesde = null; camMsg(`Placa <b>${esc(CAM.placa)}</b> — aguardando o peso ficar <b>ESTÁVEL</b>…`, true);
+      if (Date.now() - CAM.desde > 90000 && !CAM.alertaInst) { CAM.alertaInst = true;
+        alertaOperador(`O peso da placa <b>${esc(CAM.placa)}</b> não ficou estável em 90 segundos. Se o veículo estiver parado, <b>capture o peso e clique em "Encerrar e imprimir"</b>.`, 'peso_instavel', CAM.placa); }
+      return;
+    }
     CAM.estavelDesde ??= Date.now();
     const falta = (cm.segundos_estavel || 3) - (Date.now() - CAM.estavelDesde) / 1000;
     if (falta > 0) { camMsg(`Placa <b>${esc(CAM.placa)}</b> — peso estável, conferindo… ${Math.ceil(falta)} s`, true); return; }
@@ -1209,9 +1267,10 @@ async function lerPlacaCamera(manual) {
   try {
     const r = await api('camera/placa');
     if (!r.placa) {
+      CAM.ultimoErro = r.erro || '';
       if (r.erro) camMsg('⚠️ ' + esc(r.erro));
-      else if (CAM.tentativas >= 30 || manual) camMsg('Não consegui ler a placa — selecione o cadastro na tela.');
-      else camMsg(`🔍 Lendo a placa… (tentativa ${CAM.tentativas})`);
+      else if (manual) camMsg('Não consegui ler a placa — selecione o cadastro na tela.');
+      else camMsg(`🔍 Lendo a placa… (tentativa ${CAM.tentativas} de ${LIMITE_LEITURAS})`);
       return;
     }
     if (CAM.fase !== 'placa') return;
@@ -1234,19 +1293,30 @@ async function lerPlacaCamera(manual) {
     } else {
       CAM.fase = 'feito'; $('#placa').value = r.placa; $('#busca').value = r.placa; buscarAC();
       camMsg(`Placa <b>${esc(r.placa)}</b> sem cadastro — cadastre ou escolha na tela.`);
-      toast(`📷 Placa <b>${esc(r.placa)}</b> não está cadastrada.`, 'warn'); return;
+      alertaOperador(`Placa <b>${esc(r.placa)}</b> lida, mas <b>não está cadastrada</b>. Cadastre o veículo ou escolha o cadastro e <b>finalize a pesagem manualmente</b>.`, 'placa_sem_cadastro', r.placa);
+      return;
     }
-    if (CFG.camera.pesagem_automatica) { CAM.fase = 'estavel'; $('#camCancelar').hidden = false; }
+    if (CFG.camera.pesagem_automatica) { CAM.fase = 'estavel'; CAM.desde = Date.now(); $('#camCancelar').hidden = false; }
     else { CAM.fase = 'feito'; camMsg(`Placa <b>${esc(r.placa)}</b> — cadastro carregado. Capture o peso e salve.`); }
-  } catch (e) { camMsg('⚠️ ' + esc(e.message)); }
-  finally { CAM.lendo = false; }
+  } catch (e) { CAM.ultimoErro = e.message; camMsg('⚠️ ' + esc(e.message)); }
+  finally {
+    CAM.lendo = false;
+    if (!manual && CAM.fase === 'placa' && CAM.tentativas >= LIMITE_LEITURAS) {  // desistiu: operador finaliza à mão
+      CAM.fase = 'feito';
+      camMsg('Não consegui ler a placa — finalize a pesagem manualmente.');
+      alertaOperador(`<b>Não foi possível ler a placa do veículo</b>${CAM.ultimoErro ? ' (' + esc(CAM.ultimoErro) + ')' : ''}. Finalize a pesagem manualmente: busque o cadastro, confira a TARA, capture o peso e clique em <b>"Encerrar e imprimir"</b>.`,
+        CAM.ultimoErro ? 'camera' : 'placa_nao_lida');
+    }
+  }
 }
 function iniciarContagem() {
   const unica = pesagemUnica(), final = !!ESTADO.ticket || unica, alvo = final ? '#pesoFinal' : '#pesoInicial';
   if (unica && numero($('#pesoInicial').value) === null) {
     CAM.fase = 'feito'; $('#camCancelar').hidden = true;
     camMsg(`Placa <b>${esc(CAM.placa)}</b> sem TARA no cadastro — informe a TARA e clique em "Encerrar e imprimir".`);
-    capturar('#pesoFinal'); return;
+    capturar('#pesoFinal');
+    alertaOperador(`O cadastro da placa <b>${esc(CAM.placa)}</b> está <b>sem TARA</b>. Informe a TARA e clique em <b>"Encerrar e imprimir"</b>.`, 'sem_tara', CAM.placa);
+    return;
   }
   capturar(alvo); CAM.fase = 'contagem'; let n = 5;
   const passo = () => {
@@ -1257,9 +1327,27 @@ function iniciarContagem() {
     if (n-- > 0) return;
     clearInterval(CAM.timer); $('#camConta').hidden = true; $('#camCancelar').hidden = true; CAM.fase = 'feito';
     camMsg(`✅ Pesagem automática da placa <b>${esc(CAM.placa)}</b> feita. Aguardando o caminhão sair da balança.`);
-    salvar(final, !CFG.camera.imprimir_automatico, final);
+    finalizarAuto(final);
   };
   passo(); CAM.timer = setInterval(passo, 1000);
+}
+// salva a pesagem automática e manda direto para a impressora (sem janela)
+async function finalizarAuto(final) {
+  const placa = CAM.placa, t = await salvar(final, true, final);
+  if (!t) {
+    camMsg('⚠️ A pesagem automática não foi salva.');
+    return alertaOperador(`A pesagem automática da placa <b>${esc(placa)}</b> <b>não foi salva</b> (veja o aviso ao lado). Confira os dados e clique em <b>"Encerrar e imprimir"</b>.`, 'falha_salvar', placa);
+  }
+  if (!final || !CFG.camera.imprimir_automatico) return;
+  camMsg(`✅ Ticket <b>${t.id}</b> encerrado — imprimindo…`);
+  try {
+    await api(`tickets/${t.id}/imprimir`, {method: 'POST', body: {foto: $('#impFoto').checked, placa: t.placa}});
+    toast(`🖨️ Ticket <b>${t.id}</b> enviado para a impressora.`, 'ok');
+    camMsg(`✅ Ticket <b>${t.id}</b> encerrado e impresso. Aguardando o veículo sair da balança.`);
+  } catch (e) {
+    camMsg(`⚠️ Ticket <b>${t.id}</b> salvo, mas não imprimiu.`);
+    alertaOperador(`O ticket <b>${t.id}</b> foi salvo, mas <b>não imprimiu</b>: ${esc(e.message)}. Clique em <b>"Imprimir ticket Nº ${t.id}"</b> para tentar pela janela de impressão.`, 'falha_impressao', t.placa, false);
+  }
 }
 $('#camCancelar').onclick = () => {
   clearInterval(CAM.timer); CAM.fase = 'feito'; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
@@ -1293,6 +1381,7 @@ $('#tagCodigo').onkeydown = e => { if (e.key === 'Enter') identificar(); };
 
 let ultimaChaveTag = null;
 async function lerTag() {
+  if (MODO_IMG) return;
   if (!CFG.incontrol?.ativo) { $('#dotTag').className = 'dot'; return; }
   try {
     const r = await api('tag/ultima');
@@ -1347,7 +1436,8 @@ async function salvar(encerrar, semImprimir, manterNaTela) {
       if (manterNaTela) mostrarConcluido(t); else limpar(); }
     else { toast(`Ticket <b>${t.id}</b> salvo como ABERTO. Finalize em "Tickets abertos".`, 'ok'); limpar(); }
     atualizarResumo();
-  } catch (e) { toast(e.message, 'err'); }
+    return t;
+  } catch (e) { toast(e.message, 'err'); return null; }
 }
 $('#btnAbrir').onclick = () => salvar(false);
 $('#btnEncerrar').onclick = () => salvar(true);
@@ -1497,15 +1587,15 @@ async function carregarAbertos() {
 }
 async function carregarTickets() {
   const l = await api('tickets?q=' + encodeURIComponent($('#buscaTickets').value));
-  $('#tbTickets').innerHTML = l.map(t => `<tr><td>${t.id}</td><td class="st-${t.status}">${t.status}</td><td><b>${esc(t.placa)}</b></td>
-    <td>${esc(t.empresa_nome || '')}</td><td>${esc(t.motorista)}</td>
-    <td>${t.pagador ? (t.pagador === 'EMPRESA' ? '🏢 Empresa' : '👤 ' + esc(t.pagador_nome || 'Motorista')) : ''}${t.valor_manual != null ? ` <span class="pill">${brl(t.valor_manual)}</span>` : ''}</td><td>${esc(t.item)}</td><td class="num">${fmt(t.peso_inicial)}</td><td class="num">${fmt(t.peso_final)}</td>
-    <td class="num"><b>${fmt(t.peso_liquido)}</b></td><td>${dataBR(t.data_final || t.data_inicial)}</td>
-    <td>${t.status === 'ABERTO' ? `<button class="btn sm" onclick="carregarTicketNoForm(${t.id})">Finalizar</button>` : ''}
-        ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="reimprimir(${t.id})">🖨️ Reimprimir</button>` : ''}
-        ${t.status === 'ENCERRADO' && t.foto ? `<button class="btn sm" onclick="reimprimir(${t.id}, true)" title="Reimprimir com a foto da câmera">📷 Com foto</button>` : ''}
-        <button class="btn sm" onclick="abrirTicketEdicao(${t.id})">✏️ Editar</button>
-        <button class="btn sm d" onclick="excluirTicket(${t.id})">🗑️</button></td></tr>`).join('')
+  $('#tbTickets').innerHTML = l.map(t => `<tr><td class="acts">${t.status === 'ABERTO' ? `<button class="btn sm p" onclick="carregarTicketNoForm(${t.id})">Finalizar</button>` : ''}
+        ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="reimprimir(${t.id})" title="Reimprimir">🖨️</button>` : ''}
+        ${t.status === 'ENCERRADO' && t.foto ? `<button class="btn sm" onclick="reimprimir(${t.id}, true)" title="Reimprimir com a foto da câmera">📷</button>` : ''}
+        <button class="btn sm" onclick="abrirTicketEdicao(${t.id})" title="Editar">✏️</button>
+        <button class="btn sm d" onclick="excluirTicket(${t.id})" title="Excluir">🗑️</button></td>
+    <td>${t.id}</td><td class="st-${t.status}">${t.status}</td><td><b>${esc(t.placa)}</b></td>
+    <td class="wrap">${esc(t.empresa_nome || '')}</td><td class="wrap">${esc(t.motorista)}</td>
+    <td class="wrap">${t.pagador ? (t.pagador === 'EMPRESA' ? '🏢 Empresa' : '👤 ' + esc(t.pagador_nome || 'Motorista')) : ''}${t.valor_manual != null ? ` <span class="pill">${brl(t.valor_manual)}</span>` : ''}</td><td>${esc(t.item)}</td><td class="num">${fmt(t.peso_inicial)}</td><td class="num">${fmt(t.peso_final)}</td>
+    <td class="num"><b>${fmt(t.peso_liquido)}</b></td><td>${dataBR(t.data_final || t.data_inicial)}</td></tr>`).join('')
     || '<tr><td colspan="12" class="vazio">Nenhum ticket ainda.</td></tr>';
 }
 // ---------- editar / excluir ticket ----------
@@ -1564,19 +1654,49 @@ function recarregarListas() {
   if ($('#tab-tickets').classList.contains('on')) carregarTickets();
   if ($('#tab-abertos').classList.contains('on')) carregarAbertos();
   if ($('#tab-historico').classList.contains('on')) carregarHist();
+  if ($('#tab-faturamento').classList.contains('on') && FAT) calcularFat();
 }
 let tmr; $('#buscaTickets').oninput = () => { clearTimeout(tmr); tmr = setTimeout(carregarTickets, 250); };
 async function carregarHist() {
   const l = await api('historico?q=' + encodeURIComponent($('#buscaHist').value));
   window._hist = l;
-  $('#tbHist').innerHTML = l.map((p, i) => `<tr><td>${p.id}</td><td>${dataBR(p.data_local)}</td><td><b>${esc(p.placa)}</b></td><td>${esc(p.user_name)}</td>
+  $('#tbHist').innerHTML = l.map((p, i) => `<tr class="${SEL_HIST.has(p.id) ? 'sel-on' : ''}"><td><input type="checkbox" class="ck hsck" data-i="${i}" ${SEL_HIST.has(p.id) ? 'checked' : ''}></td>
+    <td class="acts"><button class="btn sm" onclick="imprimirHist(${i})" title="Imprimir">🖨️</button>
+        <button class="btn sm" onclick="editarHist(${i})" title="Editar">✏️</button>
+        <button class="btn sm d" onclick="excluirHist(${i})" title="Excluir">🗑️</button></td>
+    <td>${p.id}</td><td>${dataBR(p.data_local)}</td><td><b>${esc(p.placa)}</b></td><td class="wrap">${esc(p.user_name)}</td>
     <td class="num">${fmt(p.peso_maximo)}</td><td class="num">${fmt(p.peso_final)}</td><td class="num"><b>${fmt(p.peso_liquido)}</b></td>
-    <td class="muted">${p.cor === 'PESAGEM_NOVA' ? 'sistema novo' : 'sistema antigo'}</td>
-    <td><button class="btn sm" onclick="imprimirHist(${i})">🖨️</button>
-        <button class="btn sm" onclick="editarHist(${i})">✏️ Editar</button>
-        <button class="btn sm d" onclick="excluirHist(${i})">🗑️</button></td></tr>`).join('')
-    || '<tr><td colspan="9" class="vazio">Sem registros.</td></tr>';
+    <td class="muted">${p.cor === 'PESAGEM_NOVA' ? 'sistema novo' : 'sistema antigo'}</td></tr>`).join('')
+    || '<tr><td colspan="10" class="vazio">Sem registros.</td></tr>';
+  $('#hsTodas').checked = l.length > 0 && l.every(p => SEL_HIST.has(p.id));
+  barraSelHist();
 }
+// ---------- seleção de pesagens do histórico para o PDF do cliente ----------
+const SEL_HIST = new Map();  // id -> pesagem (fica marcada mesmo trocando a busca)
+function marcarHist(p, on) { if (on) SEL_HIST.set(p.id, p); else SEL_HIST.delete(p.id); }
+function barraSelHist() {
+  const s = [...SEL_HIST.values()]; $('#hsBar').hidden = !s.length; if (!s.length) return;
+  const val = s.reduce((a, p) => a + valorPdf(p.peso_liquido, $('#hsTipo').value, $('#hsValor').value), 0);
+  $('#hsInfo').innerHTML = `☑ ${s.length} selecionada(s) · ${fmt(s.reduce((a, p) => a + (p.peso_liquido || 0), 0))} kg${$('#hsTipo').value ? ' · ' + brl(val) : ''}`;
+  if (!$('#hsNome').value.trim()) {  // sugere o nome mais comum das selecionadas
+    const cont = {}; s.forEach(p => cont[p.user_name] = (cont[p.user_name] || 0) + 1);
+    $('#hsNome').value = Object.entries(cont).sort((a, b) => b[1] - a[1])[0][0] || '';
+  }
+}
+$('#tbHist').onchange = e => {
+  const c = e.target.closest('.hsck'); if (!c) return; const p = window._hist[c.dataset.i];
+  marcarHist(p, c.checked); c.closest('tr').classList.toggle('sel-on', c.checked);
+  $('#hsTodas').checked = window._hist.every(x => SEL_HIST.has(x.id)); barraSelHist();
+};
+$('#hsTodas').onchange = e => { (window._hist || []).forEach(p => marcarHist(p, e.target.checked)); carregarHist(); };
+$('#hsLimpar').onclick = () => { SEL_HIST.clear(); $('#hsNome').value = ''; carregarHist(); };
+$('#hsTipo').onchange = barraSelHist; $('#hsValor').oninput = barraSelHist;
+$('#hsPdf').onclick = () => {
+  const s = [...SEL_HIST.values()]; if (!s.length) return toast('Marque pelo menos uma pesagem.', 'err');
+  const nome = $('#hsNome').value.trim().toUpperCase(); if (!nome) { toast('Informe o nome do cliente no PDF.', 'err'); return $('#hsNome').focus(); }
+  gerarPdfCobranca(s.map(p => ({id: p.id, data: p.data_local, placa: p.placa, motorista: p.user_name, empresa: '', modelo: p.modelo, liquido: p.peso_liquido})),
+    nome, $('#hsTipo').value, $('#hsValor').value);
+};
 function imprimirHist(i) {
   const p = window._hist[i]; if (!p) return; const d = p.data_local;
   imprimir({id: 'H' + p.id, status: 'ENCERRADO', placa: p.placa, transportadora: p.user_name, emissor: 'Sistema antigo',
@@ -1587,8 +1707,8 @@ function imprimirHist(i) {
 // ---------- editar / excluir histórico antigo ----------
 const CAMPOS_HIST = ['placa', 'data_local', 'user_name', 'modelo', 'user_email', 'peso_maximo', 'peso_final'];
 let histEdit = null;
-function editarHist(i) {
-  const p = window._hist[i];
+function editarHist(i) { editarHistObj(window._hist[i]); }
+function editarHistObj(p) {
   // registro criado por um ticket do sistema novo: edita o ticket (que atualiza o histórico junto)
   if (p.ticket_id) return abrirTicketEdicao(p.ticket_id);
   histEdit = p;
@@ -1611,29 +1731,46 @@ async function salvarHist(reimp) {
   try {
     const p = await api('historico/' + histEdit.id, {method: 'PUT', body: d});
     $('#modalHist').classList.remove('on'); toast(`Pesagem #${p.id} atualizada.`, 'ok');
-    await carregarHist();
-    if (reimp) imprimirHist(window._hist.findIndex(x => x.id === p.id));
+    if (SEL_HIST.has(p.id)) SEL_HIST.set(p.id, p);
+    await carregarHist(); recarregarListas();
+    const i = window._hist.findIndex(x => x.id === p.id);
+    if (reimp && i >= 0) imprimirHist(i);
   } catch (e) { toast(e.message, 'err'); }
 }
 $('#mhSalvar').onclick = () => salvarHist(false);
 $('#mhSalvarImp').onclick = () => salvarHist(true);
-$('#mhExcluir').onclick = () => excluirHist(window._hist.findIndex(x => x.id === histEdit.id));
-async function excluirHist(i) {
-  const p = window._hist[i];
+$('#mhExcluir').onclick = () => excluirHistObj(histEdit);
+function excluirHist(i) { excluirHistObj(window._hist[i]); }
+async function excluirHistObj(p) {
   if (p.ticket_id) return excluirTicket(p.ticket_id).then(carregarHist);
   if (!await confirmar(`Excluir definitivamente a pesagem #${p.id} (${p.placa} · ${fmt(p.peso_liquido)} kg)?`)) return;
   try {
     await api('historico/' + p.id, {method: 'DELETE'});
-    $('#modalHist').classList.remove('on'); toast(`Pesagem #${p.id} excluída.`, 'warn'); carregarHist(); atualizarResumo();
+    $('#modalHist').classList.remove('on'); toast(`Pesagem #${p.id} excluída.`, 'warn'); SEL_HIST.delete(p.id); carregarHist(); recarregarListas();
   } catch (e) { toast(e.message, 'err'); }
 }
 let tmh; $('#buscaHist').oninput = () => { clearTimeout(tmh); tmh = setTimeout(carregarHist, 250); };
 
 // ---------- cobrança pelo histórico antigo (escolher pesagens e gerar PDF) ----------
 let COB = null;
-function valorCob(p) {
-  const v = numero($('#cobValor').value) || 0;
-  return $('#cobTipo').value === 'tonelada' ? Math.round((p.liquido || 0) / 1000 * v * 100) / 100 : v;
+function valorPdf(liquido, tipo, valor) {
+  const v = numero(valor) || 0;
+  return !tipo ? 0 : tipo === 'tonelada' ? Math.round((liquido || 0) / 1000 * v * 100) / 100 : v;
+}
+function valorCob(p) { return valorPdf(p.liquido, $('#cobTipo').value, $('#cobValor').value); }
+// PDF de cobrança para o cliente (na janela de impressão: "Salvar como PDF")
+function gerarPdfCobranca(linhas, nome, tipo, valor) {
+  const vl = p => valorPdf(p.liquido, tipo, valor), datas = linhas.map(p => p.data).sort();
+  const e = EMPRESAS.find(x => normTxt(x.nome) === normTxt(nome)), mot = {};
+  linhas.forEach(p => { const m = mot[p.motorista] ??= {nome: p.motorista, placas: [], pesagens: 0, liquido: 0, valor: 0};
+    if (!m.placas.includes(p.placa)) m.placas.push(p.placa); m.pesagens++; m.liquido += p.liquido || 0; m.valor += vl(p); });
+  const titulo = document.title; document.title = `Cobranca ${nome} ${datas[0].slice(0, 10)} a ${datas.at(-1).slice(0, 10)}`;
+  window.addEventListener('afterprint', () => document.title = titulo, {once: true});
+  imprimirFechamento({titulo: 'Cobrança de pesagens', pagador: nome, tipo: e ? 'EMPRESA' : 'MOTORISTA', empresa_id: e?.id,
+    inicio: datas[0], fim: datas.at(-1), plano: null, mensalidades: [], motoristas: Object.values(mot),
+    linhas: linhas.map(p => ({numero: 'H' + p.id, data: p.data, placa: p.placa, motorista: p.motorista, empresa: p.empresa, item: p.modelo,
+      liquido: p.liquido, valor: vl(p), regra: tipo || 'sem_valor'})),
+    valor: linhas.reduce((a, p) => a + vl(p), 0)});
 }
 function sugerirValorCob(empresa) {  // tabela da empresa ou a tabela padrão
   if ($('#cobValor').value.trim()) return;
@@ -1672,19 +1809,9 @@ $('#cobTodas').onclick = () => { $$('#tbCob .cobck').forEach(c => c.checked = tr
 $('#cobNenhuma').onclick = () => { $$('#tbCob .cobck').forEach(c => c.checked = false); $('#cobCk').checked = false; totalCob(); };
 $('#cobPdf').onclick = () => {
   const s = selecionadasCob(); if (!s.length) return toast('Marque pelo menos uma pesagem.', 'err');
-  const datas = s.map(p => p.data).sort(), emps = [...new Set(s.map(p => p.empresa).filter(Boolean))];
+  const emps = [...new Set(s.map(p => p.empresa).filter(Boolean))];
   const nome = emps.length === 1 && normTxt(emps[0]).includes(normTxt(COB.q)) ? emps[0] : COB.q.toUpperCase();
-  const e = EMPRESAS.find(x => normTxt(x.nome) === normTxt(nome));
-  const mot = {};
-  s.forEach(p => { const m = mot[p.motorista] ??= {nome: p.motorista, placas: [], pesagens: 0, liquido: 0, valor: 0};
-    if (!m.placas.includes(p.placa)) m.placas.push(p.placa); m.pesagens++; m.liquido += p.liquido || 0; m.valor += valorCob(p); });
-  const titulo = document.title; document.title = `Cobranca ${nome} ${datas[0].slice(0, 10)} a ${datas.at(-1).slice(0, 10)}`;
-  window.addEventListener('afterprint', () => document.title = titulo, {once: true});
-  imprimirFechamento({titulo: 'Cobrança de pesagens', pagador: nome, tipo: e ? 'EMPRESA' : 'MOTORISTA', empresa_id: e?.id,
-    inicio: datas[0], fim: datas.at(-1), plano: null, mensalidades: [], motoristas: Object.values(mot),
-    linhas: s.map(p => ({numero: 'H' + p.id, data: p.data, placa: p.placa, motorista: p.motorista, empresa: p.empresa, item: p.modelo,
-      liquido: p.liquido, valor: valorCob(p), regra: $('#cobTipo').value})),
-    valor: s.reduce((a, p) => a + valorCob(p), 0)});
+  gerarPdfCobranca(s, nome, $('#cobTipo').value, $('#cobValor').value);
 };
 
 // ---------- dashboard ----------
@@ -2302,7 +2429,7 @@ $('#mpExcluir').onclick = async () => {
 
 // ---------- aba Faturamento ----------
 let FAT = null;
-const REGRAS = {manual: 'Valor manual', pesagem: 'Por pesagem', tonelada: 'Por tonelada', pacote: 'No pacote', excedente: 'Excedente do pacote', sem_tabela: '⚠ Sem tabela'};
+const REGRAS = {sem_valor: '', manual: 'Valor manual', pesagem: 'Por pesagem', tonelada: 'Por tonelada', pacote: 'No pacote', excedente: 'Excedente do pacote', sem_tabela: '⚠ Sem tabela'};
 const mesBR = m => { const [a, mm] = m.split('-'); return `${MESES[mm - 1]}/${a}`; };
 function fatPeriodo(p) {
   const h = new Date(), d = n => new Date(h.getFullYear(), h.getMonth(), h.getDate() - n);
@@ -2336,12 +2463,26 @@ async function calcularFat() {
       <div class="vl">${brl(g.valor)}</div></div>
       <div class="pag-b" hidden></div></div>`;
   }).join('') || '<div class="card vazio">Nenhuma pesagem nem pacote mensal no período.</div>';
+  const ab = FAT.pagadores.findIndex(g => g.chave === FAT_ABERTO);
+  if (ab >= 0) $(`#fatLista .pag[data-i="${ab}"] .pag-h`).click();
   carregarFaturas();
 }
+let FAT_ABERTO = null;  // pagador aberto: continua aberto depois de editar/excluir uma pesagem
+async function acaoLinhaFat(x, editar) {
+  try {
+    if (x.origem === 'novo') return editar ? abrirTicketEdicao(x.id) : excluirTicket(x.id);
+    const p = await api('historico/' + x.id);
+    return editar ? editarHistObj(p) : excluirHistObj(p);
+  } catch (e) { toast(e.message, 'err'); }
+}
 $('#fatLista').onclick = e => {
+  const bt = e.target.closest('[data-ed],[data-ex]');
+  if (bt) { const g = FAT.pagadores[bt.closest('.pag').dataset.i];
+    return acaoLinhaFat(g.linhas[bt.dataset.ed ?? bt.dataset.ex], bt.dataset.ed !== undefined); }
   const h = e.target.closest('.pag-h'); if (!h) return;
   const box = h.parentElement, b = box.querySelector('.pag-b'), g = FAT.pagadores[box.dataset.i];
-  if (!b.hidden) { b.hidden = true; return; }
+  if (!b.hidden) { b.hidden = true; FAT_ABERTO = null; return; }
+  FAT_ABERTO = g.chave;
   b.innerHTML = `<div class="acoes" style="justify-content:flex-start;margin:0 0 12px">
       <button class="btn sm" data-a="imp">🖨️ Imprimir fechamento</button>
       <button class="btn sm p" data-a="fat" ${g.pendentes ? '' : 'disabled'}>🧾 Gerar fatura (${brl(g.a_faturar)})</button>
@@ -2351,8 +2492,10 @@ $('#fatLista').onclick = e => {
     </tbody></table></div>
     ${g.mensalidades.length ? `<div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Mensalidade</th><th>Pesagens usadas</th><th>Excedentes</th><th>Valor</th><th>Fatura</th></tr></thead><tbody>
       ${g.mensalidades.map(m => `<tr><td>${mesBR(m.mes)}</td><td class="num">${m.usadas}${m.franquia ? ' de ' + m.franquia : ''}</td><td class="num">${m.excedentes}</td><td class="num">${brl(m.valor)}</td><td>${m.fatura ? 'Nº ' + m.fatura : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}
-    <div class="tbl-wrap" style="margin-top:10px;max-height:340px;overflow:auto"><table><thead><tr><th>Nº</th><th>Data</th><th>Placa</th><th>Motorista</th><th>Item</th><th>Líquido</th><th>Valor</th><th>Regra</th><th>Fatura</th></tr></thead><tbody>
-      ${g.linhas.map(x => `<tr><td>${esc(x.numero)}</td><td>${dataBR(x.data)}</td><td><b>${esc(x.placa)}</b></td><td>${esc(x.motorista)}</td><td>${esc(x.item)}</td>
+    <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th></th><th>Nº</th><th>Data</th><th>Placa</th><th>Motorista</th><th>Item</th><th>Líquido</th><th>Valor</th><th>Regra</th><th>Fatura</th></tr></thead><tbody>
+      ${g.linhas.map((x, li) => `<tr><td class="acts"><button class="btn sm" data-ed="${li}" title="Editar esta pesagem">✏️</button>
+          <button class="btn sm d" data-ex="${li}" ${x.fatura ? `disabled title="Está na fatura Nº ${x.fatura} — tire da fatura antes"` : 'title="Excluir esta pesagem"'}>🗑️</button></td>
+        <td>${esc(x.numero)}</td><td>${dataBR(x.data)}</td><td><b>${esc(x.placa)}</b></td><td>${esc(x.motorista)}</td><td>${esc(x.item)}</td>
         <td class="num">${fmt(x.liquido)}</td><td class="num">${brl(x.valor)}</td><td class="muted">${REGRAS[x.regra] || x.regra}</td><td>${x.fatura ? 'Nº ' + x.fatura : '—'}</td></tr>`).join('')}
     </tbody></table></div>`;
   b.hidden = false;
@@ -2518,6 +2661,7 @@ $('#badgeBkp').onclick = () => { irPara('config'); setTimeout(() => $('#cardBack
 
 function carregarCfg() {
   $('#cfgEmpresa').value = CFG.empresa; $('#cfgNumBal').value = CFG.numero_balanca; $('#cfgVias').value = CFG.vias_impressao;
+  carregarImpressoras(); carregarFalhas();
   $('#cfgBalUrl').value = CFG.balanca_url; $('#cfgLegado').checked = CFG.registrar_no_historico_antigo; $('#cfgUnica').checked = CFG.pesagem_unica !== false; $('#cfgKiosk').checked = CFG.chrome_impressao_direta;
   $('#cfgBanco').textContent = CFG.banco_absoluto;
   $('#incAtivo').checked = CFG.incontrol.ativo; $('#incUrl').value = CFG.incontrol.url; $('#incUser').value = CFG.incontrol.usuario; $('#incSenha').value = CFG.incontrol.senha;
@@ -2532,7 +2676,7 @@ function carregarCfg() {
 }
 async function salvarCfg() {
   CFG = await api('config', {method: 'POST', body: {
-    empresa: $('#cfgEmpresa').value, numero_balanca: parseInt($('#cfgNumBal').value) || 1, vias_impressao: parseInt($('#cfgVias').value) || 1,
+    empresa: $('#cfgEmpresa').value, numero_balanca: parseInt($('#cfgNumBal').value) || 1, vias_impressao: parseInt($('#cfgVias').value) || 1, impressora: $('#cfgImpressora').value,
     balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, pesagem_unica: $('#cfgUnica').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
     incontrol: {ativo: $('#incAtivo').checked, url: $('#incUrl').value, usuario: $('#incUser').value, senha: $('#incSenha').value},
     backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
@@ -2543,6 +2687,27 @@ async function salvarCfg() {
   ultimaChaveTag = null; atualizarResumo(); carregarBackups();
 }
 $('#cfgSalvar').onclick = async () => { try { await salvarCfg(); toast('Configurações salvas.', 'ok'); } catch (e) { toast(e.message, 'err'); } };
+async function carregarImpressoras() {
+  const sel = $('#cfgImpressora');
+  try {
+    const r = await api('impressoras');
+    const nomes = [...new Set([...r.impressoras, CFG.impressora].filter(Boolean))];
+    sel.innerHTML = `<option value="">Padrão do Windows${r.padrao ? ' (' + esc(r.padrao) + ')' : ''}</option>` +
+      nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  } catch (e) {}
+  sel.value = CFG.impressora || '';
+}
+const TIPOS_FALHA = {placa_nao_lida: '📷 Placa não lida', placa_sem_cadastro: '🚫 Placa sem cadastro', sem_tara: '⚖ Sem TARA',
+  peso_instavel: '〰 Peso instável', camera: '📷 Câmera', foto: '🖼 Foto', falha_salvar: '💾 Não salvou', falha_impressao: '🖨️ Impressão'};
+async function carregarFalhas() {
+  try {
+    const l = await api('falhas'); $('#nFalhas').textContent = l.length;
+    $('#tbFalhas').innerHTML = l.map(f => `<tr><td>${dataBR(f.quando)}</td><td>${TIPOS_FALHA[f.tipo] || esc(f.tipo)}</td>
+      <td><b>${esc(f.placa === '-' ? '' : f.placa)}</b></td><td class="wrap">${esc(f.mensagem)}</td></tr>`).join('')
+      || '<tr><td colspan="4" class="vazio">Nenhuma falha registrada. 👍</td></tr>';
+  } catch (e) {}
+}
+$('#falhasAtualizar').onclick = carregarFalhas;
 $('#camTeste').onclick = async () => {
   await salvarCfg(); const pre = $('#camDebug'); pre.hidden = false; pre.textContent = 'Conectando na câmera… (pode levar uns 15 segundos)';
   let st = {};
@@ -2556,6 +2721,13 @@ $('#incTeste').onclick = async () => {
 };
 
 // ---------- início ----------
+if (MODO_IMG) {
+  document.documentElement.classList.add('modo-img');
+  atualizarResumo().then(async () => {
+    const t = await api('tickets/' + MODO_IMG[1]);
+    $('#print-area').innerHTML = htmlTicket(t, MODO_IMG[2] === '1');
+  });
+}
 atualizarResumo().then(() => { carregarCad(); carregarEmpresas(); carregarRefs(); lerTag(); });
 setInterval(atualizarResumo, 30000);
 calcular();

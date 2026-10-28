@@ -159,9 +159,16 @@ Aba **Relatórios**: filtro por período (atalhos Hoje, Ontem, 7 dias, Este mês
      Depois **encerra o ticket sozinho**. Ele não imprime, a menos que "Imprimir o ticket na pesagem automática" esteja marcado.
 - Depois de encerrar sozinho, a pesagem **fica na tela**, travada e com o botão "🖨️ Imprimir ticket", até o veículo sair da balança.
   Quando um veículo sobe, o sistema vai sozinho para a aba Pesagem.
-- **Foto no ticket:** ao encerrar um ticket com a câmera ligada, a imagem dela é guardada em `balanca_novaotos	icket_<nº>.jpg`.
+- **Foto no ticket:** ao encerrar um ticket com a câmera ligada, a imagem dela é guardada em `balanca_nova\fotos\ticket_<nº>.jpg`.
   Por padrão a foto **não sai na impressão**. Para sair, marque **📷 Imprimir com a foto** (ao lado de "Encerrar e imprimir")
   ou use o botão **📷 Com foto** na aba Tickets. A pasta `fotos` não entra no backup do banco.
+- **Impressão automática:** ao encerrar sozinha, a pesagem é impressa **direto na impressora** escolhida em Configurações → Geral (EPSON L395 Series), sem abrir janela.
+  O número de cópias segue "Vias por impressão". Por dentro, o Chrome sem tela monta a imagem do ticket e o `imprimir_ticket.ps1` manda para a impressora.
+  Liga e desliga em Configurações → Câmera → "Imprimir o ticket na pesagem automática".
+- **Alertas para o operador** (faixa vermelha com bip no alto da tela de pesagem). Em todos os casos a pesagem é finalizada à mão:
+  placa não lida depois de 20 tentativas, câmera fora do ar, placa sem cadastro, cadastro sem TARA,
+  peso que não estabiliza em 90 s, pesagem que não salvou e ticket que não imprimiu.
+- **Log de falhas:** tudo isso é gravado em `balanca_nova\logs\falhas.log` e aparece em Configurações → "Log de falhas".
 - **Pesagem única** (padrão; desliga em Configurações → Geral): a TARA vem do cadastro e o peso da balança já é o final.
   Líquido = peso − TARA, sem 2ª pesagem. Cadastro sem TARA: o sistema captura o peso e espera o operador informar a TARA.
   Os tickets que já estavam abertos continuam sendo finalizados normalmente (pelo quadro "No pátio" ou pela câmera).
@@ -172,6 +179,10 @@ Aba **Relatórios**: filtro por período (atalhos Hoje, Ontem, 7 dias, Este mês
   **✅ Finalizar** carrega o ticket ali mesmo e já pega o peso, se o caminhão estiver na balança.
 - **Faturas:** em Faturamento → Faturas geradas, use **✏️ Editar** para mudar valores, situação e observação.
   Desmarcar uma pesagem tira ela da fatura, e ela volta para o "a faturar". **🗑️ Excluir** apaga a fatura e as pesagens também voltam.
+- **Faturamento (abrindo um pagador):** cada pesagem tem **✏️** (editar) e **🗑️** (excluir).
+  A exclusão fica bloqueada se a pesagem já estiver numa fatura; nesse caso, tire-a da fatura antes.
+- **Histórico antigo → PDF para o cliente:** marque as pesagens (☑) na lista. A seleção continua mesmo trocando a busca.
+  Na barra azul, confira o nome do cliente e o valor, depois clique em **📄 Gerar PDF das selecionadas**.
 - **Cobrança pelo histórico:** na aba Histórico antigo, digite a empresa, o motorista ou a placa e escolha o período.
   Marque as pesagens e use **📄 Gerar PDF de cobrança** (na janela de impressão, escolha "Salvar como PDF").
   A empresa vem do cadastro da placa. Essa cobrança não cria fatura.

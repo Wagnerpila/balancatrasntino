@@ -31,6 +31,8 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE, "config.json")
 STATIC_DIR = os.path.join(BASE, "static")
 FOTOS_DIR = os.path.join(BASE, "fotos")  # foto da câmera de cada ticket encerrado (fotos/ticket_<id>.jpg)
+LOGS_DIR = os.path.join(BASE, "logs")
+FALHAS_LOG = os.path.join(LOGS_DIR, "falhas.log")
 
 DEFAULT_CONFIG = {
     "porta": 8080,
@@ -39,6 +41,7 @@ DEFAULT_CONFIG = {
     "balanca_url": "http://127.0.0.1:80/peso/?fmt=1",
     "numero_balanca": 1,
     "vias_impressao": 2,
+    "impressora": "",
     "pesagem_unica": True,
     "registrar_no_historico_antigo": True,
     "abrir_navegador": True,
@@ -501,6 +504,96 @@ def ler_balanca():
 
 
 # --------------------------------------------------------------------------
+# Log de falhas (logs/falhas.log): uma linha por problema, para conferir depois
+# --------------------------------------------------------------------------
+LOG_LOCK = threading.Lock()
+
+
+def registrar_falha(tipo, mensagem, placa=""):
+    linha = " | ".join([agora_local(), str(tipo or "-"), str(placa or "-"),
+                        " ".join(str(mensagem or "").split())])
+    print("FALHA:", linha)
+    with LOG_LOCK:
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        with open(FALHAS_LOG, "a", encoding="utf-8") as f:
+            f.write(linha + "\n")
+
+
+def ler_falhas(limite=300):
+    if not os.path.isfile(FALHAS_LOG):
+        return []
+    with open(FALHAS_LOG, encoding="utf-8", errors="replace") as f:
+        linhas = f.read().splitlines()[-limite:]
+    itens = []
+    for ln in reversed(linhas):
+        partes = (ln.split(" | ", 3) + ["", "", ""])[:4]
+        itens.append({"quando": partes[0], "tipo": partes[1], "placa": partes[2], "mensagem": partes[3]})
+    return itens
+
+
+# --------------------------------------------------------------------------
+# Impressão direta do ticket (sem janela): o Chrome sem tela tira a "foto" da
+# página do ticket e o PowerShell manda essa imagem para a impressora escolhida.
+# --------------------------------------------------------------------------
+IMPRESSAO_LOCK = threading.Lock()
+SEM_JANELA = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+
+
+def chrome_exe():
+    candidatos = [
+        shutil.which("chrome"),
+        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+    ]
+    return next((c for c in candidatos if c and os.path.isfile(c)), None)
+
+
+def listar_impressoras():
+    r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                        "Get-Printer | Select-Object -ExpandProperty Name; '---'; "
+                        "(Get-CimInstance Win32_Printer -Filter 'Default=True').Name"],
+                       capture_output=True, text=True, timeout=30, creationflags=SEM_JANELA)
+    nomes, _, padrao = r.stdout.partition("---")
+    return {"impressoras": [n.strip() for n in nomes.splitlines() if n.strip()], "padrao": padrao.strip()}
+
+
+def imprimir_ticket_direto(tid, foto=False, placa=""):
+    """Imprime o ticket na impressora da configuração (vazia = padrão do Windows)."""
+    try:
+        chrome = chrome_exe()
+        if not chrome:
+            raise RuntimeError("Chrome não encontrado para montar o ticket")
+        pasta = os.path.join(BASE, "impressao")
+        os.makedirs(pasta, exist_ok=True)
+        png = os.path.join(pasta, f"ticket_{int(tid)}.png")
+        if os.path.exists(png):
+            os.remove(png)
+        url = (f"http://127.0.0.1:{int(CONFIG.get('porta', 8080))}/?img={time.time():.0f}"
+               f"#ticketimg={int(tid)}&foto={1 if foto else 0}")
+        with IMPRESSAO_LOCK:
+            subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+                            "--force-device-scale-factor=2", "--window-size=794,1123", "--virtual-time-budget=15000",
+                            f"--user-data-dir={os.path.join(BASE, 'chrome_impressao')}", f"--screenshot={png}", url],
+                           capture_output=True, timeout=90, creationflags=SEM_JANELA)
+            if not os.path.isfile(png) or os.path.getsize(png) < 5000:
+                raise RuntimeError("não consegui montar a imagem do ticket")
+            r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                                os.path.join(BASE, "imprimir_ticket.ps1"), "-Imagem", png,
+                                "-Impressora", CONFIG.get("impressora") or "",
+                                "-Copias", str(max(1, int(CONFIG.get("vias_impressao") or 1)))],
+                               capture_output=True, text=True, timeout=90, creationflags=SEM_JANELA)
+            if r.returncode != 0 or "OK" not in r.stdout:
+                erro = next((ln[5:].strip() for ln in r.stdout.splitlines() if ln.startswith("ERRO:")), None)
+                raise RuntimeError(erro or (r.stderr or r.stdout or "erro desconhecido").strip()[-300:])
+    except Exception as e:  # noqa: BLE001
+        registrar_falha("falha_impressao", f"Ticket {tid}: {e}", placa)
+        raise RuntimeError(str(e)) from e
+    return {"ok": True, "impressora": CONFIG.get("impressora") or "padrão do Windows"}
+
+
+# --------------------------------------------------------------------------
 # Câmera da balança + leitura de placa
 #
 # O vídeo (RTSP) e a leitura de placa (fast-alpr, gratuito e local) rodam num
@@ -542,7 +635,7 @@ def iniciar_camera():
     if not CONFIG["camera"].get("ativo"):
         return
     if not os.path.isfile(CAMERA_PY):
-        print("Câmera: leitor de placas não instalado (pasta lpr_venv). Rode INSTALAR_CAMERA.bat.")
+        registrar_falha("camera", "Leitor de placas não instalado (pasta lpr_venv). Rode INSTALAR_CAMERA.bat.")
         return
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     with CAMERA["lock"]:
@@ -756,6 +849,7 @@ def guardar_foto_ticket(tid):
             print(f"Foto do ticket {tid}: câmera não respondeu ({e}), tentativa {tentativa + 1}")
             time.sleep(1)
     else:
+        registrar_falha("foto", f"Ticket {tid}: a câmera não entregou a foto")
         return False
     os.makedirs(FOTOS_DIR, exist_ok=True)
     with open(caminho_foto(tid), "wb") as f:
@@ -2036,6 +2130,15 @@ class Handler(BaseHTTPRequestHandler):
             if r == ["peso"]:
                 return self._json(ler_balanca())
 
+            if r == ["falhas"]:
+                if metodo == "POST":
+                    d = self._corpo()
+                    registrar_falha(d.get("tipo"), d.get("mensagem"), d.get("placa"))
+                    return self._json({"ok": True})
+                return self._json(ler_falhas(int(q.get("limite", 300))))
+            if r == ["impressoras"]:
+                return self._json(listar_impressoras())
+
             if r[:1] == ["camera"]:
                 if r[1:] == ["status"]:
                     return self._json(camera_status())
@@ -2189,6 +2292,9 @@ class Handler(BaseHTTPRequestHandler):
                         t["foto"] = True
                     return self._json(t)
                 tid = int(r[1])
+                if len(r) == 3 and r[2] == "imprimir" and metodo == "POST":
+                    d = self._corpo()
+                    return self._json(imprimir_ticket_direto(tid, bool(d.get("foto")), d.get("placa", "")))
                 if len(r) == 3 and r[2] == "foto.jpg":
                     if not os.path.isfile(caminho_foto(tid)):
                         self.send_error(404)

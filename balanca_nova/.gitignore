@@ -3,3 +3,6 @@ __pycache__/
 chrome_perfil/
 config.json
 fotos/
+logs/
+impressao/
+chrome_impressao/
