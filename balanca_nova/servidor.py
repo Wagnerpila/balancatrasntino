@@ -9,6 +9,7 @@ Django, venv ou pip). Lê e grava no MESMO banco SQLite do sistema antigo
 
 Como abrir: dê dois cliques em INICIAR.bat (ou rode: python servidor.py).
 """
+import base64
 import json
 import os
 import re
@@ -57,6 +58,12 @@ DEFAULT_CONFIG = {
         "pasta": "backups",
         "intervalo_horas": 6,
         "manter": 60,
+    },
+    "espelho": {
+        "ativo": False,
+        "url": "",
+        "token": "",
+        "conexoes": 6,
     },
     "camera": {
         "ativo": False,
@@ -705,6 +712,71 @@ def ler_placa_camera():
         return {"placa": None, "leituras": leituras}
     melhor = max(validas, key=lambda x: x.get("confianca") or 0)
     return dict(buscar_por_placa(melhor["texto"]), confianca=melhor.get("confianca"), leituras=leituras)
+
+
+# --------------------------------------------------------------------------
+# Espelho na internet (VPS): este computador continua sendo o sistema principal.
+# Ele mesmo pergunta à VPS "tem algum pedido para mim?" e responde com o que o
+# servidor local devolveria (não precisa abrir porta no roteador). Sem internet,
+# nada muda aqui.
+# --------------------------------------------------------------------------
+ESPELHO = {"conectado": False, "ultimo": None, "erro": None, "pedidos": 0}
+
+
+def bloqueado_remoto(metodo, caminho):
+    """O que não pode ser feito pela internet (a VPS também bloqueia)."""
+    p = urllib.parse.urlsplit(caminho).path
+    return p.startswith("/api/backups") or (p.startswith("/api/config") and metodo != "GET")
+
+
+def executar_pedido_remoto(p):
+    metodo, caminho = p.get("metodo", "GET"), p.get("caminho", "/")
+    if bloqueado_remoto(metodo, caminho) or not caminho.startswith("/"):
+        corpo = json.dumps({"erro": "Isso só pode ser feito no computador da balança."}).encode()
+        return {"id": p.get("id"), "status": 403, "cabecalhos": {"Content-Type": "application/json; charset=utf-8"},
+                "corpo": base64.b64encode(corpo).decode()}
+    dados = base64.b64decode(p.get("corpo") or "") if metodo in ("POST", "PUT", "DELETE") else None
+    cab = {"X-Espelho": "1"}
+    if p.get("tipo"):
+        cab["Content-Type"] = p["tipo"]
+    req = urllib.request.Request(f"http://127.0.0.1:{int(CONFIG.get('porta', 8080))}{caminho}",
+                                 data=dados, method=metodo, headers=cab)
+    try:
+        with urllib.request.urlopen(req, timeout=55) as r:
+            status, corpo, h = r.status, r.read(), r.headers
+    except urllib.error.HTTPError as e:
+        status, corpo, h = e.code, e.read(), e.headers
+    cabecalhos = {k: h.get(k) for k in ("Content-Type", "Content-Disposition") if h.get(k)}
+    return {"id": p.get("id"), "status": status, "cabecalhos": cabecalhos, "corpo": base64.b64encode(corpo).decode()}
+
+
+def trabalhador_espelho():
+    ctx = ssl.create_default_context()
+    while True:
+        cfg = CONFIG.get("espelho") or {}
+        if not (cfg.get("ativo") and cfg.get("url") and cfg.get("token")):
+            ESPELHO["conectado"] = False
+            time.sleep(5)
+            continue
+        base = cfg["url"].rstrip("/")
+        cab = {"X-Agente-Token": cfg["token"], "User-Agent": "BalancaTranstino-Agente/1.0"}
+        try:
+            req = urllib.request.Request(base + "/_agente/proximo", headers=cab)
+            with urllib.request.urlopen(req, timeout=40, context=ctx) as r:
+                texto = r.read() if r.status == 200 else b""
+            ESPELHO.update(conectado=True, ultimo=agora_local(), erro=None)
+            if not texto:
+                continue
+            resposta = executar_pedido_remoto(json.loads(texto))
+            ESPELHO["pedidos"] += 1
+            req = urllib.request.Request(base + "/_agente/resposta", data=json.dumps(resposta).encode(), method="POST",
+                                         headers=dict(cab, **{"Content-Type": "application/json"}))
+            urllib.request.urlopen(req, timeout=40, context=ctx).read()
+        except Exception as e:  # noqa: BLE001
+            if ESPELHO["conectado"] or ESPELHO["erro"] is None:
+                print(f"Espelho: sem conexão com {base} ({e})")
+            ESPELHO.update(conectado=False, erro=str(e)[:200])
+            time.sleep(5)
 
 
 # --------------------------------------------------------------------------
@@ -2049,6 +2121,7 @@ def config_publica():
     c = json.loads(json.dumps(CONFIG))
     c["incontrol"]["senha"] = "********" if c["incontrol"].get("senha") else ""
     c["camera"]["senha"] = "********" if c["camera"].get("senha") else ""
+    c["espelho"]["token"] = "********" if c["espelho"].get("token") else ""
     c["camera"]["instalado"] = os.path.isfile(CAMERA_PY)
     c["banco_absoluto"] = caminho_banco()
     return c
@@ -2103,7 +2176,8 @@ class Handler(BaseHTTPRequestHandler):
             r = partes[1:]
 
             if r == ["status"]:
-                return self._json({"config": config_publica(), "resumo": resumo_hoje(), "backup": resumo_backup()})
+                return self._json({"config": config_publica(), "resumo": resumo_hoje(), "backup": resumo_backup(),
+                                   "espelho": ESPELHO})
 
             if r[:1] == ["backups"]:
                 if len(r) == 1 and metodo == "GET":
@@ -2151,7 +2225,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(buscar_por_placa(q.get("placa", "")))
                 if r[1:] == ["foto.jpg"]:
                     try:
-                        body, tipo = camera_get("/foto.jpg", 4)
+                        largura = int(q.get("w") or 1280)
+                        body, tipo = camera_get(f"/foto.jpg?w={largura}", 4)
                     except (urllib.error.URLError, OSError):
                         self.send_error(503)
                         return
@@ -2171,7 +2246,7 @@ class Handler(BaseHTTPRequestHandler):
                             continue
                         if isinstance(DEFAULT_CONFIG[k], dict) and isinstance(v, dict):
                             for sk, sv in v.items():
-                                if sk == "senha" and sv == "********":
+                                if sk in ("senha", "token") and sv == "********":
                                     continue
                                 if sk in DEFAULT_CONFIG[k]:
                                     CONFIG[k][sk] = sv
@@ -2411,6 +2486,8 @@ def main():
     print("  Para encerrar, feche esta janela.")
     print("=" * 60)
     threading.Thread(target=agendador_backup, daemon=True).start()
+    for _ in range(max(1, int((CONFIG.get("espelho") or {}).get("conexoes") or 6))):
+        threading.Thread(target=trabalhador_espelho, daemon=True).start()
     iniciar_camera()
     if CONFIG.get("abrir_navegador", True):
         threading.Timer(1.0, abrir_navegador, args=(url,)).start()

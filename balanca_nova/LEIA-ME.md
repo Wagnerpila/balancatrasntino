@@ -201,3 +201,13 @@ Para imprimir **sem abrir a janela**, marque "Impressão direta" em Configuraç�
 
 ## Configuração
 Fica em `config.json`: porta, caminho do banco, URL da balança, nome da empresa, vias e InControl.
+
+## Espelho na internet (VPS / Easypanel)
+- O sistema e o banco ficam **neste computador**. A VPS roda só o espelho (`espelho/relay.py`, sem banco).
+  Ele pede usuário e senha e repassa os pedidos para cá. Quem abre a conexão é este computador, então não precisa abrir porta no roteador.
+- Sem internet, a pesagem aqui continua normal. Na internet aparece "computador da balança OFFLINE" e a última cópia das telas.
+- Pela internet **não** dá para restaurar ou baixar backup nem mudar as configurações.
+  A pesagem automática roda só na tela aberta neste computador (127.0.0.1).
+- Ligar em Configurações → "Espelho na internet": endereço `https://balancatranstino.wcmdigital.com.br` e a chave do agente.
+- Na VPS (Easypanel), as variáveis são `USUARIO`, `SENHA` e `AGENTE_TOKEN`. O `AGENTE_TOKEN` tem que ser igual à "chave do agente" daqui.
+

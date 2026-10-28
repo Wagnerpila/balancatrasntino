@@ -318,6 +318,8 @@ tr.oculto td{opacity:.55}
   <span class="badge"><span class="dot" id="dotBal"></span> Balança</span>
   <span class="badge" title="Leitura automática de tags via InControl"><span class="dot" id="dotTag"></span> Tags</span>
   <span class="badge" id="badgeBkp" title="Backup do banco de dados" style="cursor:pointer"><span class="dot" id="dotBkp"></span> Backup</span>
+  <span class="badge" id="badgeEsp" title="Espelho na internet" hidden><span class="dot" id="dotEsp"></span> Internet</span>
+  <span class="badge" id="badgeRemoto" hidden>🌐 <span id="remotoTxt">Acesso remoto</span> · <a href="/_sair" style="color:var(--blue)">Sair</a></span>
   <label class="oper">Operador <input id="operador" value="administrator"></label>
   <span id="relogio"></span>
 </header>
@@ -766,6 +768,15 @@ tr.oculto td{opacity:.55}
     <button class="btn sm" id="camTeste">Testar câmera</button>
     <pre id="camDebug" style="white-space:pre-wrap;font-size:11px;max-height:220px;overflow:auto;background:var(--bg2);padding:10px;border-radius:8px;margin-top:10px" hidden></pre>
   </div>
+  <div class="card" id="cardEspelho">
+    <h3>🌐 Espelho na internet (VPS)</h3>
+    <p class="muted" style="font-size:12px;margin:0 0 10px" id="espInfo">O sistema e o banco continuam neste computador. O espelho mostra o sistema pela internet, com login, e repassa para cá os comandos de quem acessa de fora. Sem internet, a pesagem aqui continua normal.</p>
+    <div class="f"><label><input type="checkbox" id="espAtivo" style="width:auto"> Conectar ao espelho</label></div>
+    <div class="row">
+      <div class="f" style="flex:2"><label>Endereço do espelho</label><input id="espUrl" placeholder="https://balancatranstino.wcmdigital.com.br"></div>
+      <div class="f"><label>Chave do agente</label><input id="espToken" type="password"></div>
+    </div>
+  </div>
   <div class="card" id="cardFalhas">
     <h3>📋 Log de falhas <span class="pill" id="nFalhas"></span><span class="spacer"></span><button class="btn sm" id="falhasAtualizar">↻ Atualizar</button></h3>
     <p class="muted" style="font-size:12px;margin:0 0 10px">Placa não lida, placa sem cadastro, câmera fora do ar, falha ao salvar ou imprimir… Arquivo: <code>balanca_nova\logs\falhas.log</code></p>
@@ -1012,6 +1023,9 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 // aberto pelo servidor só para montar a imagem do ticket: nada de balança, câmera ou automático aqui
 const MODO_IMG = location.hash.match(/^#ticketimg=(\d+)&foto=(\d)/);
+// aberto neste computador (127.0.0.1) = tela da balança; pela internet (espelho) só acompanha:
+// a pesagem automática roda só aqui, para não haver pesagem em dobro
+const LOCAL = ['127.0.0.1', 'localhost'].includes(location.hostname);
 const fmt = n => (n === null || n === undefined || n === '' || isNaN(n)) ? '—' : Number(n).toLocaleString('pt-BR', {maximumFractionDigits: 2});
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const numero = v => { if (v === null || v === undefined) return null; v = String(v).trim(); if (!v) return null;
@@ -1228,7 +1242,7 @@ function atualizarFoto() {
   CAM.foto = true; const img = new Image();
   img.onload = () => { $('#camImg').src = img.src; CAM.foto = false; $('#camTag').textContent = '📷 Ao vivo'; };
   img.onerror = () => { CAM.foto = false; $('#camTag').textContent = '📷 Sem imagem da câmera'; };
-  img.src = '/api/camera/foto.jpg?t=' + Date.now();
+  img.src = `/api/camera/foto.jpg?${LOCAL ? '' : 'w=640&'}t=${Date.now()}`;
 }
 setInterval(atualizarFoto, 700);
 function cicloCamera() {
@@ -1242,6 +1256,7 @@ function cicloCamera() {
     $('#camBox').hidden = true; return;
   }
   if ($('#camBox').hidden) { $('#camBox').hidden = false; atualizarFoto(); }
+  if (!LOCAL) { camMsg('🌐 Acesso remoto — a pesagem automática é feita no computador da balança.'); return; }
   if (CAM.fase === 'ocioso') {
     CAM.fase = 'placa';
     if (!$('#tab-pesagem').classList.contains('on') && !$('.modal-bg.on')) irPara('pesagem');
@@ -1353,6 +1368,22 @@ $('#camCancelar').onclick = () => {
   clearInterval(CAM.timer); CAM.fase = 'feito'; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
   camMsg('Automático cancelado — termine a pesagem pelos botões.');
 };
+if (!LOCAL) $('#camLer').hidden = true;
+function statusEspelho(e) {
+  $('#badgeEsp').hidden = !LOCAL || !CFG.espelho?.ativo;
+  if (!e) return;
+  $('#dotEsp').className = 'dot ' + (e.conectado ? 'ok' : 'err');
+  $('#badgeEsp').title = e.conectado ? `Espelho conectado · ${e.pedidos} pedido(s) atendidos` : 'Espelho sem conexão: ' + (e.erro || '');
+}
+if (!LOCAL && !MODO_IMG) {  // acesso pela internet: mostra se o computador da balança está conectado
+  $('#badgeRemoto').hidden = false;
+  const verRemoto = async () => {
+    try { const r = await (await fetch('/_status')).json();
+      $('#remotoTxt').textContent = r.online ? 'Acesso remoto' : '⚠️ Computador da balança OFFLINE — mostrando a última cópia';
+    } catch (e) {}
+  };
+  verRemoto(); setInterval(verRemoto, 10000);
+}
 $('#camLer').onclick = () => {
   if (CAM.lendo || CAM.fase === 'contagem') return;
   CAM.fase = 'placa'; CAM.tentativas = 0; lerPlacaCamera(true);
@@ -1540,12 +1571,16 @@ function imprimir(t, comFoto = false) {
   const imgs = $$('#print-area img').map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })).filter(Boolean);
   Promise.race([Promise.all(imgs), new Promise(r => setTimeout(r, 3000))]).then(() => setTimeout(() => window.print(), 150));
 }
+async function imprimirNaBalanca(id) {
+  try { await api(`tickets/${id}/imprimir`, {method: 'POST', body: {}}); toast(`🖨️ Ticket <b>${id}</b> enviado para a impressora da balança.`, 'ok'); }
+  catch (e) { toast('Não imprimiu: ' + esc(e.message), 'err'); }
+}
 async function reimprimir(id, comFoto) { imprimir(await api('tickets/' + id), comFoto); }
 
 // ---------- listas ----------
 async function atualizarResumo() {
   try {
-    const s = await api('status'); CFG = s.config; const r = s.resumo; statusBackup(s.backup);
+    const s = await api('status'); CFG = s.config; const r = s.resumo; statusBackup(s.backup); statusEspelho(s.espelho);
     $('#empresa').textContent = CFG.empresa; $('#numBal').textContent = CFG.numero_balanca; $('#nAbertos').textContent = r.abertos;
     $('#kpis').innerHTML = [['Tickets hoje', r.tickets_hoje], ['Líquido hoje', fmt(r.liquido_hoje) + ' kg'],
       ['Tickets abertos', r.abertos], ['Cadastros', r.cadastros]].map(([k, v]) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
@@ -1590,6 +1625,7 @@ async function carregarTickets() {
   $('#tbTickets').innerHTML = l.map(t => `<tr><td class="acts">${t.status === 'ABERTO' ? `<button class="btn sm p" onclick="carregarTicketNoForm(${t.id})">Finalizar</button>` : ''}
         ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="reimprimir(${t.id})" title="Reimprimir">🖨️</button>` : ''}
         ${t.status === 'ENCERRADO' && t.foto ? `<button class="btn sm" onclick="reimprimir(${t.id}, true)" title="Reimprimir com a foto da câmera">📷</button>` : ''}
+        ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="imprimirNaBalanca(${t.id})" title="Imprimir na impressora da balança (EPSON)">⚖🖨️</button>` : ''}
         <button class="btn sm" onclick="abrirTicketEdicao(${t.id})" title="Editar">✏️</button>
         <button class="btn sm d" onclick="excluirTicket(${t.id})" title="Excluir">🗑️</button></td>
     <td>${t.id}</td><td class="st-${t.status}">${t.status}</td><td><b>${esc(t.placa)}</b></td>
@@ -2692,6 +2728,7 @@ function carregarCfg() {
   $('#incAtivo').checked = CFG.incontrol.ativo; $('#incUrl').value = CFG.incontrol.url; $('#incUser').value = CFG.incontrol.usuario; $('#incSenha').value = CFG.incontrol.senha;
   $('#bkpAtivo').checked = CFG.backup.ativo; $('#bkpIntervalo').value = CFG.backup.intervalo_horas;
   $('#bkpManter').value = CFG.backup.manter; $('#bkpPasta').value = CFG.backup.pasta;
+  $('#espAtivo').checked = CFG.espelho?.ativo; $('#espUrl').value = CFG.espelho?.url || ''; $('#espToken').value = CFG.espelho?.token || '';
   const cm = CFG.camera;
   $('#camAtivo').checked = cm.ativo; $('#camUrl').value = cm.url; $('#camUser').value = cm.usuario; $('#camSenha').value = cm.senha;
   $('#camMin').value = cm.peso_minimo; $('#camSeg').value = cm.segundos_estavel; $('#camLerPlaca').checked = cm.ler_placa; $('#camAuto').checked = cm.pesagem_automatica; $('#camImp').checked = !!cm.imprimir_automatico;
@@ -2704,6 +2741,7 @@ async function salvarCfg() {
     empresa: $('#cfgEmpresa').value, numero_balanca: parseInt($('#cfgNumBal').value) || 1, vias_impressao: parseInt($('#cfgVias').value) || 1, impressora: $('#cfgImpressora').value,
     balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, pesagem_unica: $('#cfgUnica').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
     incontrol: {ativo: $('#incAtivo').checked, url: $('#incUrl').value, usuario: $('#incUser').value, senha: $('#incSenha').value},
+    espelho: {ativo: $('#espAtivo').checked, url: $('#espUrl').value.trim(), token: $('#espToken').value},
     backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
              manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'},
     camera: {ativo: $('#camAtivo').checked, url: $('#camUrl').value.trim(), usuario: $('#camUser').value.trim(), senha: $('#camSenha').value,
