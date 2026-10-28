@@ -69,6 +69,17 @@ td.wrap{white-space:normal;min-width:120px}
 /* página usada só para montar a imagem do ticket na impressão direta */
 .modo-img header,.modo-img main,.modo-img #toasts,.modo-img .modal-bg{display:none!important}
 .modo-img body{background:#fff;margin:0;padding:8mm 0}.modo-img #print-area{display:block}
+.cam-box .conta-grande{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);min-width:300px;text-align:center;
+  background:rgba(8,12,18,.82);border:3px solid #ffd77a;border-radius:18px;padding:14px 26px 16px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.cam-box .conta-grande .num{font:800 76px/1 Consolas,monospace;color:#ffd77a}
+.cam-box .conta-grande .num small{font-size:28px;margin-left:4px}
+.cam-box .conta-grande .txt{font-size:16px;font-weight:700;margin-top:6px}
+.cam-box .conta-grande .sub{font-size:12px;color:#cbd5e1;margin-top:2px}
+.cam-box .conta-grande .barra{height:8px;background:#334155;border-radius:99px;margin-top:10px;overflow:hidden}
+.cam-box .conta-grande .barra i{display:block;height:100%;background:#ffd77a;transition:width .9s linear}
+.cam-box .conta-grande.ok{border-color:#3fb950}
+.cam-box .conta-grande.ok .num{color:#3fb950}
+.cam-box .conta-grande.ok .barra i{background:#3fb950}
 .cam-box .contagem{font:800 20px Consolas,monospace;color:#ffd77a}
 .estavel{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:1px}
 .estavel.s{background:#1e5a30;color:#9effb5}.estavel.i{background:#5a4a1e;color:#ffd77a}.estavel.x{background:#5a1e1e;color:#ffb3b3}
@@ -338,6 +349,12 @@ tr.oculto td{opacity:.55}
       </div>
       <div class="cam-box" id="camBox" hidden>
         <img id="camImg" alt="Câmera da balança">
+        <div class="conta-grande" id="contAuto" hidden>
+          <div class="num"><span id="contNum">10</span><small>s</small></div>
+          <div class="txt" id="contTxt">Pesagem automática</div>
+          <div class="sub" id="contSub"></div>
+          <div class="barra"><i id="contBarra"></i></div>
+        </div>
         <div class="cam-top"><span class="cam-tag" id="camTag">📷 Câmera</span><span class="spacer"></span><span class="placa-lida" id="camPlaca" hidden></span></div>
         <div class="cam-msg"><span id="camMsg">Aguardando caminhão…</span><span class="spacer"></span>
           <span class="contagem" id="camConta" hidden></span>
@@ -760,10 +777,10 @@ tr.oculto td{opacity:.55}
     </div>
     <div class="row">
       <div class="f"><label>Mostrar a câmera acima de (kg)</label><input id="camMin" type="number" min="0"></div>
-      <div class="f"><label>Peso estável por (segundos)</label><input id="camSeg" type="number" min="1" max="30"></div>
+      <div class="f"><label>Capturar o peso depois de (segundos na balança)</label><input id="camSeg" type="number" min="3" max="120"></div>
     </div>
     <div class="f"><label><input type="checkbox" id="camLerPlaca" style="width:auto"> Ler a placa e puxar o cadastro sozinho</label></div>
-    <div class="f"><label><input type="checkbox" id="camAuto" style="width:auto"> Pesagem automática: com a placa cadastrada e o peso ESTÁVEL, captura o peso e encerra a pesagem sozinho. Dá 5 segundos para cancelar.</label></div>
+    <div class="f"><label><input type="checkbox" id="camAuto" style="width:auto"> Pesagem automática: com a placa cadastrada, conta os segundos acima desde que o caminhão entrou na balança, captura o peso como estiver (mesmo instável) e encerra a pesagem sozinho. Dá para cancelar durante a contagem.</label></div>
     <div class="f"><label><input type="checkbox" id="camImp" style="width:auto"> Imprimir o ticket na pesagem automática (direto na impressora escolhida em Geral, sem abrir janela)</label></div>
     <button class="btn sm" id="camTeste">Testar câmera</button>
     <pre id="camDebug" style="white-space:pre-wrap;font-size:11px;max-height:220px;overflow:auto;background:var(--bg2);padding:10px;border-radius:8px;margin-top:10px" hidden></pre>
@@ -1250,9 +1267,33 @@ function chavePlaca(p) {
   return p.length === 7 && p[4] >= 'A' && p[4] <= 'J' ? p.slice(0, 4) + (p.charCodeAt(4) - 65) + p.slice(5) : p;
 }
 function camMsg(txt, auto) { $('#camMsg').innerHTML = txt; $('#camBox').classList.toggle('auto', !!auto); }
+// Contador grande sobre a câmera, para o operador ver quando o automático vai encerrar
+function mostrarContagem(falta, total, txt, sub, ok) {
+  $('#contAuto').hidden = false; $('#contAuto').classList.toggle('ok', !!ok);
+  $('#contNum').textContent = Math.max(0, falta); $('#contTxt').textContent = txt; $('#contSub').textContent = sub || '';
+  $('#contBarra').style.width = Math.max(0, Math.min(100, (total - falta) / total * 100)) + '%';
+}
+const esconderContagem = () => { $('#contAuto').hidden = true; };
+// Botões "⚖ Balança" travados durante a contagem do automático e até 10 s depois de encerrar
+function travarCaptura(liberarEm) {
+  clearTimeout(CAM.trava); clearInterval(CAM.travaRelogio);
+  $('#capIni').disabled = $('#capFin').disabled = true;
+  if (liberarEm === undefined) return;
+  const fim = Date.now() + liberarEm, passo = () => {
+    const falta = Math.ceil((fim - Date.now()) / 1000);
+    if (falta <= 0) return liberarCaptura();
+    mostrarContagem(falta, liberarEm / 1000, '✅ Pesagem encerrada', 'botão "Balança" liberado em ' + falta + ' s', true);
+  };
+  passo(); CAM.travaRelogio = setInterval(passo, 1000);
+}
+function liberarCaptura() {
+  clearTimeout(CAM.trava); clearInterval(CAM.travaRelogio);
+  $('#capIni').disabled = $('#capFin').disabled = false;
+  esconderContagem();
+}
 function camResetar() {
   clearInterval(CAM.timer); Object.assign(CAM, {fase: 'ocioso', tentativas: 0, estavelDesde: null, timer: null, placa: null,
-    desde: 0, alertaInst: false, ultimoErro: ''});
+    desde: 0, entrada: 0, alertaInst: false, ultimoErro: ''});
   $('#camPlaca').hidden = true; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
 }
 function atualizarFoto() {
@@ -1268,7 +1309,7 @@ function cicloCamera() {
   if (!cm?.ativo) { $('#camBox').hidden = true; return; }
   const noPeso = b?.ok && b.peso >= (cm.peso_minimo ?? 100);
   if (!noPeso) {  // balança vazia: esconde a câmera e prepara o próximo caminhão
-    if (CAM.fase === 'contagem') toast('Peso saiu da balança — pesagem automática cancelada.', 'warn');
+    if (CAM.fase === 'estavel') { toast('Peso saiu da balança — pesagem automática cancelada.', 'warn'); liberarCaptura(); }
     if (CAM.fase !== 'ocioso') camResetar();
     if (ESTADO.concluido) limpar();
     $('#camBox').hidden = true; return;
@@ -1276,23 +1317,22 @@ function cicloCamera() {
   if ($('#camBox').hidden) { $('#camBox').hidden = false; atualizarFoto(); }
   if (!LOCAL) { camMsg('🌐 Acesso remoto — a pesagem automática é feita no computador da balança.'); return; }
   if (CAM.fase === 'ocioso') {
-    CAM.fase = 'placa';
+    CAM.fase = 'placa'; CAM.entrada = Date.now();  // a contagem para capturar o peso começa na entrada
     if (!$('#tab-pesagem').classList.contains('on') && !$('.modal-bg.on')) irPara('pesagem');
     if (!cm.ler_placa) { CAM.fase = 'feito'; camMsg('Caminhão na balança.'); }
     else camMsg('🔍 Lendo a placa…');
   }
   if (CAM.fase === 'placa' && !CAM.lendo && CAM.tentativas < LIMITE_LEITURAS) lerPlacaCamera();
-  if (CAM.fase === 'estavel') {
-    if (!b.estavel) {
-      CAM.estavelDesde = null; camMsg(`Placa <b>${esc(CAM.placa)}</b> — aguardando o peso ficar <b>ESTÁVEL</b>…`, true);
-      if (Date.now() - CAM.desde > 90000 && !CAM.alertaInst) { CAM.alertaInst = true;
-        alertaOperador(`O peso da placa <b>${esc(CAM.placa)}</b> não ficou estável em 90 segundos. Se o veículo estiver parado, <b>capture o peso e clique em "Encerrar e imprimir"</b>.`, 'peso_instavel', CAM.placa); }
+  if (CAM.fase === 'estavel') {  // conta os segundos desde a entrada e captura o peso como estiver
+    if (!$('#capFin').disabled) travarCaptura();
+    const falta = (cm.segundos_captura ?? 10) - (Date.now() - (CAM.entrada || CAM.desde)) / 1000;
+    if (falta > 0) {
+      mostrarContagem(Math.ceil(falta), cm.segundos_captura ?? 10, 'Pesagem automática',
+        `encerra em ${Math.ceil(falta)} s com o peso que estiver · agora ${fmt(b.peso)} kg${b.estavel ? '' : ' (instável)'}`);
+      camMsg(`Placa <b>${esc(CAM.placa)}</b> — captura do peso em <b>${Math.ceil(falta)} s</b> (agora: ${fmt(b.peso)} kg${b.estavel ? '' : ', instável'})`, true);
       return;
     }
-    CAM.estavelDesde ??= Date.now();
-    const falta = (cm.segundos_estavel || 3) - (Date.now() - CAM.estavelDesde) / 1000;
-    if (falta > 0) { camMsg(`Placa <b>${esc(CAM.placa)}</b> — peso estável, conferindo… ${Math.ceil(falta)} s`, true); return; }
-    iniciarContagem();
+    capturarEFinalizar();
   }
 }
 async function lerPlacaCamera(manual) {
@@ -1342,27 +1382,20 @@ async function lerPlacaCamera(manual) {
     }
   }
 }
-function iniciarContagem() {
+function capturarEFinalizar() {
   const unica = pesagemUnica(), final = !!ESTADO.ticket || unica, alvo = final ? '#pesoFinal' : '#pesoInicial';
+  $('#camConta').hidden = true; $('#camCancelar').hidden = true; esconderContagem();
   if (unica && numero($('#pesoInicial').value) === null) {
-    CAM.fase = 'feito'; $('#camCancelar').hidden = true;
+    CAM.fase = 'feito'; $('#camCancelar').hidden = true; liberarCaptura();  // operador precisa terminar à mão
     camMsg(`Placa <b>${esc(CAM.placa)}</b> sem TARA no cadastro — informe a TARA e clique em "Encerrar e imprimir".`);
     capturar('#pesoFinal');
     alertaOperador(`O cadastro da placa <b>${esc(CAM.placa)}</b> está <b>sem TARA</b>. Informe a TARA e clique em <b>"Encerrar e imprimir"</b>.`, 'sem_tara', CAM.placa);
     return;
   }
-  capturar(alvo); CAM.fase = 'contagem'; let n = 5;
-  const passo = () => {
-    $('#camConta').hidden = false; $('#camConta').textContent = n + ' s';
-    const {liq} = calcular(), acao = CFG.camera.imprimir_automatico ? 'encerrar e imprimir' : 'encerrar';
-    camMsg(unica ? `Peso <b>${fmt(numero($(alvo).value))} kg</b> − TARA ${fmt(numero($('#pesoInicial').value))} = líquido <b>${fmt(liq)} kg</b> — ${acao}`
-      : `${final ? '2ª pesagem — ' + acao : '1ª pesagem — abrir ticket'}: <b>${fmt(numero($(alvo).value))} kg</b>`, true);
-    if (n-- > 0) return;
-    clearInterval(CAM.timer); $('#camConta').hidden = true; $('#camCancelar').hidden = true; CAM.fase = 'feito';
-    camMsg(`✅ Pesagem automática da placa <b>${esc(CAM.placa)}</b> feita. Aguardando o caminhão sair da balança.`);
-    finalizarAuto(final);
-  };
-  passo(); CAM.timer = setInterval(passo, 1000);
+  capturar(alvo); CAM.fase = 'feito';
+  const {liq} = calcular();
+  camMsg(`✅ Peso capturado: <b>${fmt(numero($(alvo).value))} kg</b>${unica ? ` − TARA ${fmt(numero($('#pesoInicial').value))} = líquido <b>${fmt(liq)} kg</b>` : ''}. Encerrando… Aguardando o caminhão sair da balança.`);
+  finalizarAuto(final).finally(() => travarCaptura(10000));
 }
 // salva a pesagem automática e manda direto para a impressora (sem janela)
 async function finalizarAuto(final) {
@@ -1371,7 +1404,9 @@ async function finalizarAuto(final) {
     camMsg('⚠️ A pesagem automática não foi salva.');
     return alertaOperador(`A pesagem automática da placa <b>${esc(placa)}</b> <b>não foi salva</b> (veja o aviso ao lado). Confira os dados e clique em <b>"Encerrar e imprimir"</b>.`, 'falha_salvar', placa);
   }
-  if (!final || !CFG.camera.imprimir_automatico) return;
+  if (!final || !CFG.camera.imprimir_automatico) {
+    return camMsg(`✅ ${final ? 'Ticket <b>' + t.id + '</b> encerrado' : 'Ticket <b>' + t.id + '</b> aberto'}. Aguardando o caminhão sair da balança.`);
+  }
   camMsg(`✅ Ticket <b>${t.id}</b> encerrado — imprimindo…`);
   try {
     await api(`tickets/${t.id}/imprimir`, {method: 'POST', body: {foto: $('#impFoto').checked, placa: t.placa}});
@@ -1384,6 +1419,7 @@ async function finalizarAuto(final) {
 }
 $('#camCancelar').onclick = () => {
   clearInterval(CAM.timer); CAM.fase = 'feito'; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
+  liberarCaptura();
   camMsg('Automático cancelado — termine a pesagem pelos botões.');
 };
 if (!LOCAL) $('#camLer').hidden = true;
@@ -1403,7 +1439,7 @@ if (!LOCAL && !MODO_IMG) {  // acesso pela internet: mostra se o computador da b
   verRemoto(); setInterval(verRemoto, 10000);
 }
 $('#camLer').onclick = () => {
-  if (CAM.lendo || CAM.fase === 'contagem') return;
+  if (CAM.lendo || CAM.fase === 'estavel') return;
   CAM.fase = 'placa'; CAM.tentativas = 0; lerPlacaCamera(true);
 };
 
@@ -2218,9 +2254,9 @@ function sincronizarCadastro(c, novo) {
   const b = ESTADO.peso, naBalanca = b?.ok && b.peso >= (CFG.camera?.peso_minimo ?? 100);
   if (CFG.camera?.ativo && CFG.camera.pesagem_automatica && CAM.fase === 'feito' && naBalanca && CAM.placa
       && chavePlaca(CAM.placa) === chavePlaca(c.placa) && (!pesagemUnica() || c.tara)) {
-    Object.assign(CAM, {fase: 'estavel', desde: Date.now(), estavelDesde: null, alertaInst: false});
-    $('#camCancelar').hidden = false; $('#alertaOp').hidden = true;
-    camMsg(`Cadastro atualizado — placa <b>${esc(c.placa)}</b> aguardando o peso ficar <b>ESTÁVEL</b>…`, true);
+    Object.assign(CAM, {fase: 'estavel', desde: Date.now(), entrada: Date.now(), estavelDesde: null, alertaInst: false});
+    $('#camCancelar').hidden = false; $('#alertaOp').hidden = true;  // conta de novo do zero
+    camMsg(`Cadastro atualizado — placa <b>${esc(c.placa)}</b>: capturando o peso em ${CFG.camera.segundos_captura ?? 10} s…`, true);
   }
 }
 $('#mcExcluir').onclick = () => excluirCad(cadAtual);
@@ -2752,7 +2788,7 @@ function carregarCfg() {
   $('#espAtivo').checked = CFG.espelho?.ativo; $('#espUrl').value = CFG.espelho?.url || ''; $('#espToken').value = CFG.espelho?.token || '';
   const cm = CFG.camera;
   $('#camAtivo').checked = cm.ativo; $('#camUrl').value = cm.url; $('#camUser').value = cm.usuario; $('#camSenha').value = cm.senha;
-  $('#camMin').value = cm.peso_minimo; $('#camSeg').value = cm.segundos_estavel; $('#camLerPlaca').checked = cm.ler_placa; $('#camAuto').checked = cm.pesagem_automatica; $('#camImp').checked = !!cm.imprimir_automatico;
+  $('#camMin').value = cm.peso_minimo; $('#camSeg').value = cm.segundos_captura ?? 10; $('#camLerPlaca').checked = cm.ler_placa; $('#camAuto').checked = cm.pesagem_automatica; $('#camImp').checked = !!cm.imprimir_automatico;
   $('#camCfgInfo').textContent = cm.instalado ? 'Leitor de placas instalado (fast-alpr — gratuito, roda neste computador, sem internet).'
     : 'Leitor de placas NÃO instalado: dê dois cliques em INSTALAR_CAMERA.bat na pasta do sistema.';
   carregarBackups();
@@ -2767,7 +2803,7 @@ async function salvarCfg() {
     backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
              manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'},
     camera: {ativo: $('#camAtivo').checked, url: $('#camUrl').value.trim(), usuario: $('#camUser').value.trim(), senha: $('#camSenha').value,
-             peso_minimo: numero($('#camMin').value) ?? 100, segundos_estavel: numero($('#camSeg').value) || 3,
+             peso_minimo: numero($('#camMin').value) ?? 100, segundos_captura: numero($('#camSeg').value) || 10,
              ler_placa: $('#camLerPlaca').checked, pesagem_automatica: $('#camAuto').checked, imprimir_automatico: $('#camImp').checked}}});
   ultimaChaveTag = null; atualizarResumo(); carregarBackups();
 }

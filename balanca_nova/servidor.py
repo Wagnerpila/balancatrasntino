@@ -75,6 +75,7 @@ DEFAULT_CONFIG = {
         "pesagem_automatica": True,
         "imprimir_automatico": False,
         "segundos_estavel": 3,
+        "segundos_captura": 10,
         "porta_auxiliar": 8092,
     },
     "whatsapp": {

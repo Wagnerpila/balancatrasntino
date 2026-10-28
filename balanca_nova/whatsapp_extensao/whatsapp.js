@@ -1,6 +1,7 @@
-// Roda dentro da aba do WhatsApp Web. A cada 2 s pergunta ao sistema da balança se há aviso
-// para mandar; se houver, abre a conversa com o texto pronto (web.whatsapp.com/send?...) e
-// clica em Enviar. O envio em andamento fica no sessionStorage porque a página recarrega.
+// Roda dentro da aba do WhatsApp Web. A cada 2 s o fundo da extensão (fundo.js) acorda esta aba,
+// que pergunta ao sistema da balança se há aviso para mandar; se houver, abre a conversa com o
+// texto pronto (web.whatsapp.com/send?...) e clica em Enviar. O envio em andamento fica no
+// sessionStorage porque a página recarrega. Funciona com a aba em segundo plano (ver pagina.js).
 const CHAVE = 'balanca_envio';
 const $ = s => document.querySelector(s);
 
@@ -9,7 +10,6 @@ function pedir(caminho, corpo) {
     try {
       chrome.runtime.sendMessage({caminho, corpo}, r => ok(r || {}));
     } catch (e) {  // a extensão foi atualizada: este código antigo para (F5 na aba carrega o novo)
-      clearInterval(relogio);
       ok({});
     }
   });
@@ -61,21 +61,40 @@ const descreverEnviar = () => candidatosEnviar().map(e => (e.outerHTML || '').sl
 // Põe as imagens na conversa. Tenta, nesta ordem: o campo de arquivo do menu Anexar
 // (Fotos e vídeos), arrastar e soltar na conversa e colar (Ctrl+V).
 const FORMAS = ['anexar', 'soltar', 'colar'];
-const campoFotos = () => [...document.querySelectorAll('input[type="file"]')].find(i => /image/.test(i.accept || ''));
+// item "Fotos e vídeos" do menu Anexar (não usar "Nova figurinha": mandaria como figurinha)
+function itemFotos() {
+  const el = [...document.querySelectorAll('[role="menu"] *')]
+    .filter(e => /^(fotos e v[ií]deos|photos (&|and) videos)$/i.test((e.innerText || '').trim()))
+    .pop();  // o mais interno
+  return el && (el.closest('[role="menuitem"], li, [role="button"], div[tabindex], button') || el);
+}
 function botaoAnexar() {
-  const el = document.querySelector('footer [data-icon="plus-rounded"], footer [data-icon="plus"], footer [data-icon="clip"], ' +
-    'footer [data-icon="attach-menu-plus"], footer [aria-label="Anexar"], footer [title="Anexar"], footer [aria-label="Attach"]');
+  const el = [...document.querySelectorAll('footer [aria-label], footer [title], footer [data-icon], footer svg title')].find(e => {
+    const t = e.tagName.toLowerCase() === 'title' ? e.textContent
+      : (e.getAttribute('aria-label') || e.getAttribute('title') || (e.dataset && e.dataset.icon) || '');
+    return /anexar|attach|clip|plus/i.test(t || '');
+  });
   return el && (el.closest('button, [role="button"]') || el);
 }
 async function porArquivos(arquivos, forma) {
   const dt = new DataTransfer();
   arquivos.forEach(f => dt.items.add(f));
-  if (forma === 'anexar') {
-    let campo = campoFotos();
-    if (!campo && botaoAnexar()) { botaoAnexar().click(); await esperar(1500); campo = campoFotos(); }
-    if (!campo) return false;
-    campo.files = dt.files;
-    campo.dispatchEvent(new Event('change', {bubbles: true}));
+  if (forma === 'anexar') {  // Anexar → Fotos e vídeos; pagina.js entrega as imagens no lugar da janela do Windows
+    const anexar = botaoAnexar();
+    if (!anexar) return false;
+    window.postMessage({balancaArquivos: arquivos}, '*');
+    anexar.click();
+    await esperar(1200);
+    const item = itemFotos();
+    if (!item) return false;
+    item.click();
+    await esperar(1500);
+    // se o WhatsApp usou um campo já existente (sem chamar .click()), entrega direto nele
+    const campo = [...document.querySelectorAll('input[type="file"]')].find(i => /video/.test(i.accept || ''));
+    if (campo && !botaoEnviarMidia()) {
+      campo.files = dt.files;
+      campo.dispatchEvent(new Event('change', {bubbles: true}));
+    }
     return true;
   }
   document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));  // fecha o menu Anexar
@@ -98,27 +117,34 @@ function rotulos(raiz) {
 }
 async function diagnostico() {
   const main = document.querySelector('#main');
-  const d = {url: location.href, situacao: situacao(), tem_main: !!main, tem_footer: !!document.querySelector('footer'),
-             caixa: !!caixaTexto(), main: rotulos(main), inputs: rotulos(document.body).filter(x => x.includes('accept='))};
-  const anexar = [...(main || document).querySelectorAll('button, [role="button"], span, div')]
-    .find(e => /anexar|attach/i.test((e.getAttribute('aria-label') || '') + ' ' + (e.title || '')));
-  d.anexar = anexar ? rotulos(anexar.parentElement).slice(0, 5) : null;
-  d.enviar = descreverEnviar();
-  if (anexar && !botaoEnviarMidia()) {
-    (anexar.closest('button, [role="button"]') || anexar).click();
+  const html = e => e ? (e.outerHTML || '').replace(/<path[^>]*>/g, '').slice(0, 300) : null;
+  const d = {url: location.href, situacao: situacao(), tem_main: !!main, caixa: !!caixaTexto(),
+             rodape: rotulos(document.querySelector('footer')), inputs: rotulos(document.body).filter(x => x.includes('accept=')),
+             enviar_antes: candidatosEnviar().map(html), anexar: html(botaoAnexar())};
+  const anexar = botaoAnexar();
+  if (anexar) {
+    anexar.click();
     await esperar(1500);
-    d.menu = [...document.querySelectorAll('[role="application"] li, [role="menu"] *, ul li, [role="button"]')]
-      .map(e => (e.innerText || '').trim()).filter(t => t && t.length < 40).slice(0, 40);
-    d.inputs_depois = rotulos(document.body).filter(x => x.includes('accept='));
-    document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
-    (anexar.closest('button, [role="button"]') || anexar).click();
+    d.menu = [...document.querySelectorAll('[role="menu"], [role="application"], ul')].map(html).slice(0, 5);
+    d.itens = [...document.querySelectorAll('li, [role="menuitem"], [role="button"]')].map(e => (e.innerText || '').trim())
+      .filter(t => t && t.length < 40).slice(0, 40);
+    d.inputs_menu = rotulos(document.body).filter(x => x.includes('accept='));
+    d.enviar_menu = candidatosEnviar().map(html);
+    document.body.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true}));
   }
   return d;
 }
 
 
+// liga/desliga o "modo visível" da aba durante o envio (pagina.js)
+function modoEnvio(ligado) {
+  if (ligado) document.documentElement.dataset.balancaEnviando = '1';
+  else delete document.documentElement.dataset.balancaEnviando;
+}
+
 async function terminar(envio, ok, erro) {
   sessionStorage.removeItem(CHAVE);
+  modoEnvio(false);
   await pedir('whatsapp/resultado', {id: envio.id, ok, erro});
 }
 
@@ -130,6 +156,7 @@ async function ciclo() {
     const est = situacao();
     const envio = JSON.parse(sessionStorage.getItem(CHAVE) || 'null');
     if (envio) {  // continua o envio depois de a página recarregar
+      modoEnvio(true);
       pedir('whatsapp/proximo?estado=enviando&so_estado=1');  // o sistema sabe que a aba está viva
       const limite = envio.arquivos ? 180000 : 90000;
       if (Date.now() - envio.desde > limite) return terminar(envio, false, 'tempo esgotado (' + (envio.etapa || 'abrindo a conversa') + ')');
@@ -179,9 +206,15 @@ async function ciclo() {
     if (est === 'pronto' && (esperandoDesde ||= Date.now()) > Date.now() - 60000) { guardado = prox; return; }
     guardado = null; esperandoDesde = 0;
     sessionStorage.setItem(CHAVE, JSON.stringify({id: prox.id, arquivos: prox.arquivos || 0, desde: Date.now()}));
+    modoEnvio(true);
     location.href = 'https://web.whatsapp.com/send?phone=' + prox.numero + '&text=' + encodeURIComponent(prox.texto);
   } finally {
     ocupado = false;
   }
 }
-const relogio = setInterval(ciclo, 2000);
+// o fundo da extensão chama a cada 2 s (os relógios da própria aba atrasam em segundo plano)
+chrome.runtime.onMessage.addListener((m, _de, responder) => {
+  if (m.tipo !== 'ciclo') return;
+  ciclo().finally(() => responder(true));
+  return true;
+});

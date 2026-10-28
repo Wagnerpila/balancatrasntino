@@ -232,3 +232,16 @@ Fica em `config.json`: porta, caminho do banco, URL da balança, nome da empresa
 - Testar sem gravar pesagem: no mesmo cartão, digite a placa e clique em "Enviar ticket de teste". O peso usado é o atual da balança.
 - A extensão anexa as imagens pelo botão Anexar do WhatsApp Web (com arrastar e soltar e colar como alternativas).
   Se o WhatsApp mudar a tela, use `GET /api/whatsapp/diag?pedir=1` e depois `/api/whatsapp/diag`: a extensão lista os botões da tela, sem enviar nada.
+
+## Pesagem automática em 10 segundos
+- O caminhão entra e a placa é lida. Aparece sobre a câmera um contador grande (padrão 10 s, contado desde a entrada).
+  Ao chegar a zero, o peso é capturado **como estiver, mesmo instável**, e a pesagem é encerrada (com impressão, se ligada).
+- Os botões "⚖ Balança" ficam travados durante a contagem e até 10 s depois de encerrar (contador verde).
+  "✋ Cancelar automático" libera na hora.
+- O tempo fica em Configurações → Câmera → "Capturar o peso depois de (segundos na balança)" (`camera.segundos_captura`).
+
+## WhatsApp com a aba em segundo plano
+- `fundo.js` acorda a aba do WhatsApp a cada 2 s, porque o Chrome atrasa os relógios das abas escondidas.
+- `pagina.js` roda no mundo da página. Durante o envio, faz a aba se comportar como visível e entrega as imagens
+  ao "Anexar → Fotos e vídeos" no lugar da janela de escolher arquivos do Windows.
+- Depois de mudar a extensão: em chrome://extensions clicar em ↻ e dar F5 na aba do WhatsApp.
