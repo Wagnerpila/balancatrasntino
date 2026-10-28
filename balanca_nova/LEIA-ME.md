@@ -211,3 +211,14 @@ Fica em `config.json`: porta, caminho do banco, URL da balança, nome da empresa
 - Ligar em Configurações → "Espelho na internet": endereço `https://balancatranstino.wcmdigital.com.br` e a chave do agente.
 - Na VPS (Easypanel), as variáveis são `USUARIO`, `SENHA` e `AGENTE_TOKEN`. O `AGENTE_TOKEN` tem que ser igual à "chave do agente" daqui.
 
+
+## Aviso no WhatsApp
+- Quando um caminhão sobe na balança (peso acima do mínimo da câmera), o sistema espera a leitura da placa (até 25 s) e manda
+  uma mensagem com placa, motorista, peso e o link do espelho. Só avisa de novo depois de a balança ficar 10 s vazia.
+- Quem envia é o **WhatsApp Web no Chrome** (perfil Balança Transtino), com a extensão da pasta `whatsapp_extensao`:
+  `chrome://extensions` → ligar **Modo do desenvolvedor** → **Carregar sem compactação** → escolher a pasta `whatsapp_extensao` → F5 na aba do WhatsApp.
+- A aba do WhatsApp Web tem que ficar aberta. Ao enviar, ela abre a conversa do número e clica em Enviar.
+  Se alguém estiver digitando, espera até 1 minuto. O aviso fica na fila por até 15 minutos.
+- Ligar em Configurações → "Aviso no WhatsApp": números (com DDD, separados por vírgula) e o link. O botão "Enviar mensagem de teste" testa tudo.
+- A extensão fala com o sistema em `http://127.0.0.1:8090`. Se a porta mudar, ajustar `whatsapp_extensao/manifest.json` e `fundo.js`.
+- Falhas de envio aparecem no Log de falhas (tipo WhatsApp).

@@ -777,6 +777,19 @@ tr.oculto td{opacity:.55}
       <div class="f"><label>Chave do agente</label><input id="espToken" type="password"></div>
     </div>
   </div>
+  <div class="card" id="cardWhats">
+    <h3>💬 Aviso no WhatsApp</h3>
+    <p class="muted" style="font-size:12px;margin:0 0 10px">Quando um caminhão sobe na balança, o sistema espera a leitura da placa e manda uma mensagem pelo WhatsApp Web com o link para acompanhar pela internet.
+      Quem envia é o WhatsApp Web aberto no Chrome (perfil <b>Balança Transtino</b>), com a extensão <b>"Balança Transtino — Avisos no WhatsApp"</b> instalada
+      (pasta <code>balanca_nova\whatsapp_extensao</code>). Deixe a aba do WhatsApp Web aberta.</p>
+    <div class="f"><label><input type="checkbox" id="whAtivo" style="width:auto"> Mandar aviso quando um caminhão entrar na balança</label></div>
+    <div class="row">
+      <div class="f" style="flex:2"><label>Números que recebem (com DDD; separe por vírgula)</label><input id="whNumeros" placeholder="42 9809-1054"></div>
+      <div class="f" style="flex:2"><label>Link enviado na mensagem</label><input id="whLink" placeholder="https://balancatranstino.wcmdigital.com.br"></div>
+    </div>
+    <p style="font-size:13px;margin:0 0 10px" id="whEstado"></p>
+    <button class="btn sm" id="whTeste">Enviar mensagem de teste</button>
+  </div>
   <div class="card" id="cardFalhas">
     <h3>📋 Log de falhas <span class="pill" id="nFalhas"></span><span class="spacer"></span><button class="btn sm" id="falhasAtualizar">↻ Atualizar</button></h3>
     <p class="muted" style="font-size:12px;margin:0 0 10px">Placa não lida, placa sem cadastro, câmera fora do ar, falha ao salvar ou imprimir… Arquivo: <code>balanca_nova\logs\falhas.log</code></p>
@@ -2728,6 +2741,9 @@ function carregarCfg() {
   $('#incAtivo').checked = CFG.incontrol.ativo; $('#incUrl').value = CFG.incontrol.url; $('#incUser').value = CFG.incontrol.usuario; $('#incSenha').value = CFG.incontrol.senha;
   $('#bkpAtivo').checked = CFG.backup.ativo; $('#bkpIntervalo').value = CFG.backup.intervalo_horas;
   $('#bkpManter').value = CFG.backup.manter; $('#bkpPasta').value = CFG.backup.pasta;
+  const wh = CFG.whatsapp || {};
+  $('#whAtivo').checked = !!wh.ativo; $('#whNumeros').value = wh.numeros || ''; $('#whLink').value = wh.link || '';
+  estadoWhats();
   $('#espAtivo').checked = CFG.espelho?.ativo; $('#espUrl').value = CFG.espelho?.url || ''; $('#espToken').value = CFG.espelho?.token || '';
   const cm = CFG.camera;
   $('#camAtivo').checked = cm.ativo; $('#camUrl').value = cm.url; $('#camUser').value = cm.usuario; $('#camSenha').value = cm.senha;
@@ -2742,6 +2758,7 @@ async function salvarCfg() {
     balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, pesagem_unica: $('#cfgUnica').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
     incontrol: {ativo: $('#incAtivo').checked, url: $('#incUrl').value, usuario: $('#incUser').value, senha: $('#incSenha').value},
     espelho: {ativo: $('#espAtivo').checked, url: $('#espUrl').value.trim(), token: $('#espToken').value},
+    whatsapp: {ativo: $('#whAtivo').checked, numeros: $('#whNumeros').value.trim(), link: $('#whLink').value.trim()},
     backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
              manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'},
     camera: {ativo: $('#camAtivo').checked, url: $('#camUrl').value.trim(), usuario: $('#camUser').value.trim(), senha: $('#camSenha').value,
@@ -2761,7 +2778,7 @@ async function carregarImpressoras() {
   sel.value = CFG.impressora || '';
 }
 const TIPOS_FALHA = {placa_nao_lida: '📷 Placa não lida', placa_sem_cadastro: '🚫 Placa sem cadastro', sem_tara: '⚖ Sem TARA',
-  peso_instavel: '〰 Peso instável', camera: '📷 Câmera', foto: '🖼 Foto', falha_salvar: '💾 Não salvou', falha_impressao: '🖨️ Impressão'};
+  peso_instavel: '〰 Peso instável', camera: '📷 Câmera', foto: '🖼 Foto', falha_salvar: '💾 Não salvou', falha_impressao: '🖨️ Impressão', whatsapp: '💬 WhatsApp'};
 async function carregarFalhas() {
   try {
     const l = await api('falhas'); $('#nFalhas').textContent = l.length;
@@ -2771,6 +2788,24 @@ async function carregarFalhas() {
   } catch (e) {}
 }
 $('#falhasAtualizar').onclick = carregarFalhas;
+const ESTADO_WHATS = {conectado: '🟢 WhatsApp Web conectado', conversa: '🟢 WhatsApp Web conectado', pronto: '🟢 WhatsApp Web conectado',
+  qr: '🟡 WhatsApp Web desconectado — escaneie o QR code na aba do WhatsApp', carregando: '⏳ WhatsApp Web carregando…',
+  invalido: '🟢 WhatsApp Web conectado', fechado: '⚪ WhatsApp Web não está aberto no Chrome (ou a extensão da balança não está instalada)'};
+async function estadoWhats() {
+  try {
+    const r = await api('whatsapp/status');
+    $('#whEstado').innerHTML = (ESTADO_WHATS[r.estado] || esc(r.estado)) +
+      (r.ultimo ? ` · último aviso enviado ${dataBR(r.ultimo)}` : '') + (r.fila ? ` · ${r.fila} na fila` : '') +
+      (r.erro ? `<br><span style="color:var(--err)">⚠️ ${esc(r.erro)}</span>` : '');
+  } catch (e) {}
+}
+$('#whTeste').onclick = async () => {
+  try {
+    await salvarCfg(); const r = await api('whatsapp/teste', {method: 'POST'});
+    toast(`Mensagem de teste na fila para ${r.numeros.join(', ')} — confira o WhatsApp em alguns segundos.`, 'ok');
+    for (const t of [8000, 20000, 40000]) setTimeout(estadoWhats, t);
+  } catch (e) { toast(e.message, 'err'); }
+};
 $('#camTeste').onclick = async () => {
   await salvarCfg(); const pre = $('#camDebug'); pre.hidden = false; pre.textContent = 'Conectando na câmera… (pode levar uns 15 segundos)';
   let st = {};

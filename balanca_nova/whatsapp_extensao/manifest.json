@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Balança Transtino — Avisos no WhatsApp",
+  "version": "1.0",
+  "description": "Envia pelo WhatsApp Web os avisos do sistema de pesagem (caminhão entrou na balança).",
+  "host_permissions": ["http://127.0.0.1:8090/*"],
+  "background": {"service_worker": "fundo.js"},
+  "content_scripts": [{
+    "matches": ["https://web.whatsapp.com/*"],
+    "js": ["whatsapp.js"],
+    "run_at": "document_idle"
+  }]
+}

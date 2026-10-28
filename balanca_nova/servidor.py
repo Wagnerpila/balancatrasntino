@@ -77,6 +77,12 @@ DEFAULT_CONFIG = {
         "segundos_estavel": 3,
         "porta_auxiliar": 8092,
     },
+    "whatsapp": {
+        "ativo": False,
+        "numeros": "",
+        "link": "https://balancatranstino.wcmdigital.com.br",
+        "espera_placa": 25,
+    },
 }
 
 
@@ -711,7 +717,145 @@ def ler_placa_camera():
     if not validas:
         return {"placa": None, "leituras": leituras}
     melhor = max(validas, key=lambda x: x.get("confianca") or 0)
-    return dict(buscar_por_placa(melhor["texto"]), confianca=melhor.get("confianca"), leituras=leituras)
+    r = dict(buscar_por_placa(melhor["texto"]), confianca=melhor.get("confianca"), leituras=leituras)
+    ULTIMA_PLACA.update(quando=time.time(), r=r)
+    return r
+
+
+# --------------------------------------------------------------------------
+# Aviso no WhatsApp: quando um caminhão sobe na balança, espera a leitura da
+# placa (a que a tela fez ou uma própria) e põe a mensagem numa fila. Quem
+# envia é a extensão "whatsapp_extensao" instalada no Chrome onde o WhatsApp Web
+# está conectado: ela pergunta aqui o que mandar e devolve o resultado.
+# --------------------------------------------------------------------------
+ULTIMA_PLACA = {"quando": 0, "r": None}
+WHATS = {"fila": [], "seq": 0, "visto": 0, "estado": None, "ultimo": None, "erro": None, "enviadas": 0}
+WHATS_LOCK = threading.Lock()
+
+
+def numero_whatsapp(n):
+    n = re.sub(r"\D", "", str(n))
+    return "55" + n if len(n) in (10, 11) else n  # DDD + número, sem o 55
+
+
+def enfileirar_whatsapp(numero, texto, placa=""):
+    with WHATS_LOCK:
+        WHATS["seq"] += 1
+        WHATS["fila"].append({"id": WHATS["seq"], "numero": numero_whatsapp(numero), "texto": texto,
+                              "placa": placa, "criado": time.time(), "entregue": 0})
+
+
+def proximo_whatsapp(estado, so_estado=False):
+    """A extensão pede a próxima mensagem (a cada 2 s, com o WhatsApp Web aberto)."""
+    agora = time.time()
+    WHATS.update(visto=agora, estado=estado)
+    if so_estado:
+        return {}
+    with WHATS_LOCK:
+        for m in [m for m in WHATS["fila"] if agora - m["criado"] > 900]:
+            WHATS["fila"].remove(m)
+            WHATS["erro"] = f"{agora_local()} — aviso para {m['numero']} descartado: o WhatsApp Web ficou 15 min sem enviar"
+            registrar_falha("whatsapp", WHATS["erro"].split(" — ", 1)[1], m["placa"])
+        for m in WHATS["fila"]:
+            if agora - m["entregue"] > 120:  # entregue e sem resposta em 2 min: oferece de novo
+                m["entregue"] = agora
+                return {k: m[k] for k in ("id", "numero", "texto")}
+    return {}
+
+
+def resultado_whatsapp(d):
+    with WHATS_LOCK:
+        m = next((m for m in WHATS["fila"] if m["id"] == d.get("id")), None)
+        if m:
+            WHATS["fila"].remove(m)
+    if not m:
+        return
+    if d.get("ok"):
+        WHATS.update(ultimo=agora_local(), erro=None)
+        WHATS["enviadas"] += 1
+    else:
+        WHATS["erro"] = f"{agora_local()} — aviso para {m['numero']} não enviado: {d.get('erro') or 'erro'}"
+        registrar_falha("whatsapp", WHATS["erro"].split(" — ", 1)[1], m["placa"])
+
+
+def status_whatsapp():
+    aberto = time.time() - WHATS["visto"] < 15
+    return {"estado": (WHATS["estado"] or "carregando") if aberto else "fechado", "fila": len(WHATS["fila"]),
+            "ultimo": WHATS["ultimo"], "erro": WHATS["erro"], "enviadas": WHATS["enviadas"]}
+
+
+def numeros_whatsapp():
+    return [n.strip() for n in re.split(r"[,;\n]", (CONFIG.get("whatsapp") or {}).get("numeros") or "") if n.strip()]
+
+
+def kg(v):
+    return f"{int(round(v or 0)):,}".replace(",", ".")
+
+
+def texto_aviso(r, b):
+    linhas = ["🚛 *Caminhão entrou na balança*", ""]
+    if r and r.get("placa"):
+        linhas.append(f"Placa: *{r['placa']}*")
+        c = (r.get("clientes") or [None])[0]
+        if c:
+            linhas.append(f"Motorista: {c.get('motorista') or c.get('nome')}")
+            if c.get("empresa") and c["empresa"] != (c.get("motorista") or c.get("nome")):
+                linhas.append(f"Empresa: {c['empresa']}")
+        else:
+            linhas.append("(placa sem cadastro)")
+    else:
+        linhas.append("Placa: não lida pela câmera")
+    if b.get("ok") and b.get("peso") is not None:
+        linhas.append(f"Peso agora: {kg(b['peso'])} kg")
+    linhas.append(f"Horário: {datetime.now():%d/%m/%Y %H:%M}")
+    link = ((CONFIG.get("whatsapp") or {}).get("link") or "").strip()
+    if link:
+        linhas += ["", f"Acompanhe a pesagem: {link}"]
+    return "\n".join(linhas)
+
+
+def avisar_entrada(inicio):
+    cfg, cam = CONFIG.get("whatsapp") or {}, CONFIG.get("camera") or {}
+    r = None
+    if cam.get("ativo") and cam.get("ler_placa"):
+        limite = inicio + int(cfg.get("espera_placa") or 25)
+        while time.time() < limite:
+            if ULTIMA_PLACA["quando"] >= inicio - 5:  # a tela (ou a leitura daqui) já achou a placa
+                r = ULTIMA_PLACA["r"]
+                break
+            if time.time() - inicio > 6:  # a tela não leu (ou está fechada): lê aqui
+                try:
+                    if ler_placa_camera().get("placa"):
+                        continue
+                except (urllib.error.URLError, OSError, ValueError):
+                    pass
+            time.sleep(2)
+    texto = texto_aviso(r, ler_balanca())
+    for n in numeros_whatsapp():
+        enfileirar_whatsapp(n, texto, (r or {}).get("placa") or "")
+
+
+def vigiar_balanca():
+    """Percebe a chegada do caminhão (peso acima do mínimo da câmera)."""
+    na_balanca, vazio_desde = False, None
+    while True:
+        time.sleep(1)
+        if not (CONFIG.get("whatsapp") or {}).get("ativo"):
+            na_balanca = False
+            continue
+        b = ler_balanca()
+        if not b["ok"] or b["peso"] is None:
+            continue
+        minimo = num((CONFIG.get("camera") or {}).get("peso_minimo"))
+        if b["peso"] >= (100 if minimo is None else minimo):
+            vazio_desde = None
+            if not na_balanca:
+                na_balanca = True
+                threading.Thread(target=avisar_entrada, args=(time.time(),), daemon=True).start()
+        else:
+            vazio_desde = vazio_desde or time.time()
+            if time.time() - vazio_desde >= 10:  # só conta como saída depois de 10 s vazia
+                na_balanca = False
 
 
 # --------------------------------------------------------------------------
@@ -2238,6 +2382,26 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(body)
                     return
 
+            if r[:1] == ["whatsapp"]:
+                if r[1:] == ["status"]:
+                    return self._json(status_whatsapp())
+                if r[1:] in (["proximo"], ["resultado"]):
+                    if self.headers.get("X-Espelho"):  # só a extensão deste computador
+                        return self._json({"erro": "Só no computador da balança."}, 403)
+                    if r[1:] == ["proximo"]:
+                        return self._json(proximo_whatsapp(q.get("estado", ""), bool(q.get("so_estado"))))
+                    if metodo == "POST":
+                        resultado_whatsapp(self._corpo())
+                        return self._json({"ok": True})
+                if r[1:] == ["teste"] and metodo == "POST":
+                    numeros = numeros_whatsapp()
+                    if not numeros:
+                        return self._json({"erro": "Informe pelo menos um número."}, 400)
+                    texto = "✅ Teste do aviso da Balança Transtino\n\n" + texto_aviso(None, ler_balanca())
+                    for n in numeros:
+                        enfileirar_whatsapp(n, texto)
+                    return self._json({"ok": True, "numeros": numeros})
+
             if r[:1] == ["config"]:
                 if metodo == "POST":
                     novo = self._corpo()
@@ -2489,6 +2653,7 @@ def main():
     for _ in range(max(1, int((CONFIG.get("espelho") or {}).get("conexoes") or 6))):
         threading.Thread(target=trabalhador_espelho, daemon=True).start()
     iniciar_camera()
+    threading.Thread(target=vigiar_balanca, daemon=True).start()
     if CONFIG.get("abrir_navegador", True):
         threading.Timer(1.0, abrir_navegador, args=(url,)).start()
     try:
