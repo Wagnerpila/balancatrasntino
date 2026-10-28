@@ -44,6 +44,7 @@ DEFAULT_CONFIG = {
     "vias_impressao": 2,
     "impressora": "",
     "pesagem_unica": True,
+    "minutos_repetido": 10,
     "registrar_no_historico_antigo": True,
     "abrir_navegador": True,
     "chrome_impressao_direta": False,
@@ -1158,6 +1159,31 @@ CAMPOS_TICKET = [
 ]
 
 
+# um ticket novo por vez: duas telas (ou dois cliques) ao mesmo tempo não gravam em dobro
+TICKET_LOCK = threading.Lock()
+
+
+class TicketRepetido(ValueError):
+    """Já existe pesagem da mesma placa há poucos minutos."""
+
+    def __init__(self, t):
+        self.ticket = t
+        super().__init__(f"A placa {t['placa']} já foi pesada há pouco (ticket Nº {t['id']}, {t['status'].lower()}).")
+
+
+def ticket_repetido(con, placa, cliente_id):
+    """Ticket da mesma placa (ou do mesmo cadastro) feito nos últimos minutos, para não pesar em dobro."""
+    minutos = num(CONFIG.get("minutos_repetido"))
+    if not minutos or minutos <= 0:
+        return None
+    desde = (datetime.now() - timedelta(minutes=minutos)).strftime("%Y-%m-%d %H:%M:%S")
+    chave = chave_placa(placa or "")
+    for t in con.execute("SELECT * FROM nova_ticket WHERE status != 'CANCELADO' AND criado_em >= ? ORDER BY id DESC", (desde,)):
+        if (chave and chave_placa(t["placa"] or "") == chave) or (cliente_id and t["cliente_id"] == cliente_id):
+            return ticket_calculado(t)
+    return None
+
+
 def ticket_calculado(t):
     t = dict(t)
     pi, pf = t.get("peso_inicial"), t.get("peso_final")
@@ -1267,7 +1293,7 @@ def salvar_ticket(dados, tid=None):
         valores["data_final"] = agora
     valores["atualizado_em"] = agora
 
-    with conectar() as con:
+    with TICKET_LOCK, conectar() as con:
         # par motorista + empresa: o nome da empresa vem do cadastro de empresas
         if "empresa_id" in valores:
             if valores["empresa_id"]:
@@ -1297,6 +1323,10 @@ def salvar_ticket(dados, tid=None):
         else:
             if valores.get("peso_inicial") is None:
                 raise ValueError("Informe o peso inicial.")
+            if not dados.get("permitir_repetido"):
+                repetido = ticket_repetido(con, valores.get("placa"), valores.get("cliente_id"))
+                if repetido:
+                    raise TicketRepetido(repetido)
             valores["criado_em"] = agora
             cols = ", ".join(valores)
             marks = ", ".join("?" for _ in valores)
@@ -2747,6 +2777,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(h, 200 if h else 404)
 
             return self._json({"erro": "rota não encontrada"}, 404)
+        except TicketRepetido as e:
+            return self._json({"erro": str(e), "repetido": e.ticket}, 409)
         except ValueError as e:
             return self._json({"erro": str(e)}, 400)
         except Exception as e:  # noqa: BLE001

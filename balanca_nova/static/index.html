@@ -1143,7 +1143,7 @@ async function api(path, opts = {}) {
     body: opts.body ? JSON.stringify(opts.body) : undefined});
   const j = await r.json().catch(() => ({erro: 'Resposta inválida do servidor'}));
   if (r.status === 401 && !LOCAL && j?.login) location.href = '/_login';  // sessão do espelho venceu
-  if (!r.ok) throw new Error(j && j.erro || ('Erro ' + r.status));
+  if (!r.ok) throw Object.assign(new Error(j && j.erro || ('Erro ' + r.status)), {status: r.status, dados: j});
   return j;
 }
 function toast(msg, tipo = '') {
@@ -1403,7 +1403,10 @@ setInterval(atualizarFoto, 700);
 function cicloCamera() {
   const cm = CFG.camera, b = ESTADO.peso;
   if (!cm?.ativo) { $('#camBox').hidden = true; return; }
-  const noPeso = b?.ok && b.peso >= (cm.peso_minimo ?? 100);
+  if (!b?.ok || b.peso === null || b.peso === undefined) return;  // falha de leitura não é balança vazia
+  const noPeso = b.peso >= (cm.peso_minimo ?? 100);
+  if (noPeso) CAM.vazioDesde = 0;
+  else if (CAM.fase === 'feito' && (CAM.vazioDesde = CAM.vazioDesde || Date.now()) > Date.now() - 5000) return;  // só conta como saída depois de 5 s vazia
   if (!noPeso) {  // balança vazia: esconde a câmera e prepara o próximo caminhão
     if (CAM.fase === 'estavel') { toast('Peso saiu da balança — pesagem automática cancelada.', 'warn'); liberarCaptura(); }
     if (CAM.fase !== 'ocioso') camResetar();
@@ -1500,6 +1503,7 @@ async function finalizarAuto(final) {
     camMsg('⚠️ A pesagem automática não foi salva.');
     return alertaOperador(`A pesagem automática da placa <b>${esc(placa)}</b> <b>não foi salva</b> (veja o aviso ao lado). Confira os dados e clique em <b>"Encerrar e imprimir"</b>.`, 'falha_salvar', placa);
   }
+  if (t.repetido) return camMsg(`Placa <b>${esc(placa)}</b> já pesada há pouco — ticket <b>${t.id}</b>, não gravei de novo. Aguardando o caminhão sair da balança.`);
   if (!final || !CFG.camera.imprimir_automatico) {
     return camMsg(`✅ ${final ? 'Ticket <b>' + t.id + '</b> encerrado' : 'Ticket <b>' + t.id + '</b> aberto'}. Aguardando o caminhão sair da balança.`);
   }
@@ -1610,18 +1614,32 @@ function validar(encerrar) {
   if (ESTADO.pagador === 'EMPRESA' && !$('#tkEmpresa').value) { toast('Selecione a empresa ou cobre do motorista.', 'err'); return false; }
   return true;
 }
+let SALVANDO = false;  // evita gravar duas vezes (clique duplo, automático + botão)
 async function salvar(encerrar, semImprimir, manterNaTela) {
   if (ESTADO.concluido) { imprimir(ESTADO.concluido, $('#impFoto').checked); return; }  // pesagem já encerrada na tela: o botão só reimprime
-  if (!validar(encerrar)) return;
+  if (SALVANDO || !validar(encerrar)) return;
   const d = dadosForm(); d.encerrar = encerrar;
+  SALVANDO = true; $('#btnEncerrar').disabled = $('#btnAbrir').disabled = true;
   try {
-    const t = ESTADO.ticket ? await api('tickets/' + ESTADO.ticket.id, {method: 'PUT', body: d}) : await api('tickets', {method: 'POST', body: d});
+    let t;
+    try {
+      t = ESTADO.ticket ? await api('tickets/' + ESTADO.ticket.id, {method: 'PUT', body: d}) : await api('tickets', {method: 'POST', body: d});
+    } catch (e) {
+      const rep = e.dados?.repetido;
+      if (!rep) throw e;
+      if (manterNaTela) {  // automático: a placa já foi pesada agora há pouco, mostra o ticket que já existe
+        toast(`${esc(e.message)} Não foi gravado de novo.`, 'warn'); mostrarConcluido(rep); return {...rep, repetido: true};
+      }
+      if (!await confirmar(`${e.message} Gravar OUTRA pesagem desta placa mesmo assim?`)) return null;
+      t = await api('tickets', {method: 'POST', body: {...d, permitir_repetido: true}});
+    }
     if (encerrar) { toast(`Ticket <b>${t.id}</b> encerrado · líquido ${fmt(t.peso_liquido)} kg`, 'ok'); if (!semImprimir) imprimir(t, $('#impFoto').checked);
       if (manterNaTela) mostrarConcluido(t); else limpar(); }
     else { toast(`Ticket <b>${t.id}</b> salvo como ABERTO. Finalize em "Tickets abertos".`, 'ok'); limpar(); }
     atualizarResumo();
     return t;
   } catch (e) { toast(e.message, 'err'); return null; }
+  finally { SALVANDO = false; $('#btnEncerrar').disabled = $('#btnAbrir').disabled = false; }
 }
 $('#btnAbrir').onclick = () => salvar(false);
 $('#btnEncerrar').onclick = () => salvar(true);
