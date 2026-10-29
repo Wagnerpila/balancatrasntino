@@ -64,6 +64,7 @@ tr.sel-on td{background:rgba(88,166,255,.08)}
 td.acts{white-space:nowrap;width:1%}
 td.wrap{white-space:normal;min-width:120px}
 /* alerta para o operador finalizar à mão */
+.esp-aviso{background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.45);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:14px}
 .alerta-op{display:flex;gap:14px;align-items:center;background:#7f1d1d;border:2px solid #f87171;color:#fff;padding:14px 18px;
   border-radius:var(--r);margin-bottom:16px;font-size:16px;animation:pisca .6s 4 alternate}
 .alerta-op[hidden]{display:none}.alerta-op .ic{font-size:30px}.alerta-op>div{flex:1}
@@ -408,6 +409,7 @@ tr.oculto td{opacity:.55}
 <main>
 <!-- ================= PESAGEM ================= -->
 <section class="tab on" id="tab-pesagem">
+  <div class="esp-aviso" id="espAviso" hidden>📡 <b>Ao vivo</b> — mostrando a pesagem que está acontecendo no computador da balança</div>
   <div class="alerta-op" id="alertaOp" hidden><span class="ic">⚠️</span><div id="alertaTxt"></div>
     <button class="btn" id="alertaOk">OK, entendi</button></div>
   <div class="grid">
@@ -1341,6 +1343,7 @@ function selecionarCliente(c, viaTag) {
 // ---------- câmera da balança / leitura de placa / pesagem automática ----------
 // fases: ocioso → placa (lendo) → estavel (esperando o peso parar) → contagem (5 s p/ cancelar) → feito (até o caminhão sair)
 const CAM = {fase: 'ocioso', tentativas: 0, lendo: false, estavelDesde: null, timer: null, placa: null, foto: false};
+const ESP = {ativo: false};  // acesso remoto: está acompanhando uma pesagem do computador da balança
 // alerta grande na tela (com bip) para o operador finalizar à mão; também vai para o log de falhas
 function alertaOperador(msg, tipo, placa, registrar = true) {
   $('#alertaTxt').innerHTML = msg; $('#alertaOp').hidden = false;
@@ -1414,7 +1417,7 @@ function cicloCamera() {
     $('#camBox').hidden = true; return;
   }
   if ($('#camBox').hidden) { $('#camBox').hidden = false; atualizarFoto(); }
-  if (!LOCAL) { camMsg('🌐 Acesso remoto — a pesagem automática é feita no computador da balança.'); return; }
+  if (!LOCAL) { if (!ESP.ativo) camMsg('🌐 Acesso remoto — a pesagem automática é feita no computador da balança.'); return; }
   if (CAM.fase === 'ocioso') {
     CAM.fase = 'placa'; CAM.entrada = Date.now();  // a contagem para capturar o peso começa na entrada
     if (!$('#tab-pesagem').classList.contains('on') && !$('.modal-bg.on')) irPara('pesagem');
@@ -1482,6 +1485,7 @@ async function lerPlacaCamera(manual) {
   }
 }
 function capturarEFinalizar() {
+  if (ESTADO.concluido) { CAM.fase = 'feito'; esconderContagem(); $('#camCancelar').hidden = true; return; }  // já registrada (ex.: pelo celular)
   const unica = pesagemUnica(), final = !!ESTADO.ticket || unica, alvo = final ? '#pesoFinal' : '#pesoInicial';
   $('#camConta').hidden = true; $('#camCancelar').hidden = true; esconderContagem();
   if (unica && numero($('#pesoInicial').value) === null) {
@@ -1498,12 +1502,20 @@ function capturarEFinalizar() {
 }
 // salva a pesagem automática e manda direto para a impressora (sem janela)
 async function finalizarAuto(final) {
-  const placa = CAM.placa, t = await salvar(final, true, final);
+  if (ESTADO.peso?.simulacao) {  // simulação: mostra como ficaria, sem gravar nada
+    const {pi, pf, liq} = calcular();
+    mostrarConcluido({id: 'SIMULAÇÃO', simulacao: true, status: 'ENCERRADO', modo: 'AUTOMATICO', placa: $('#placa').value,
+      peso_inicial: pi, peso_final: pf, peso_liquido: liq, origem_inicial: $('#pesoInicial').dataset.origem,
+      data_inicial: null, data_final: new Date().toISOString().slice(0, 19).replace('T', ' '), balanca_final: CFG.numero_balanca,
+      operador_final: $('#operador').value || 'administrator'});
+    return camMsg('🧪 <b>Simulação</b> concluída — líquido <b>' + fmt(liq) + ' kg</b>. Nenhum ticket foi gravado. Aguardando o caminhão sair da balança.');
+  }
+  const placa = CAM.placa, t = await salvar(final, true, final, 'AUTOMATICO');
   if (!t) {
     camMsg('⚠️ A pesagem automática não foi salva.');
     return alertaOperador(`A pesagem automática da placa <b>${esc(placa)}</b> <b>não foi salva</b> (veja o aviso ao lado). Confira os dados e clique em <b>"Encerrar e imprimir"</b>.`, 'falha_salvar', placa);
   }
-  if (t.repetido) return camMsg(`Placa <b>${esc(placa)}</b> já pesada há pouco — ticket <b>${t.id}</b>, não gravei de novo. Aguardando o caminhão sair da balança.`);
+  if (t.repetido || t.ja_gravado) return camMsg(`Placa <b>${esc(placa)}</b> já registrada — ticket <b>${t.id}</b>, não gravei de novo. Aguardando o caminhão sair da balança.`);
   if (!final || !CFG.camera.imprimir_automatico) {
     return camMsg(`✅ ${final ? 'Ticket <b>' + t.id + '</b> encerrado' : 'Ticket <b>' + t.id + '</b> aberto'}. Aguardando o caminhão sair da balança.`);
   }
@@ -1615,10 +1627,17 @@ function validar(encerrar) {
   return true;
 }
 let SALVANDO = false;  // evita gravar duas vezes (clique duplo, automático + botão)
-async function salvar(encerrar, semImprimir, manterNaTela) {
-  if (ESTADO.concluido) { imprimir(ESTADO.concluido, $('#impFoto').checked); return; }  // pesagem já encerrada na tela: o botão só reimprime
+// cada pesagem na tela tem uma chave: o mesmo pedido chegando duas vezes no servidor grava só um ticket
+const novaChave = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+// aqui abre a janela de impressão; pelo acesso remoto manda para a impressora da balança
+function imprimirTicket(t) {
+  if (t.simulacao) return toast('Simulação — não há ticket para imprimir.', 'warn');
+  if (LOCAL) imprimir(t, $('#impFoto').checked); else imprimirNaBalanca(t.id, $('#impFoto').checked);
+}
+async function salvar(encerrar, semImprimir, manterNaTela, modo = 'MANUAL') {
+  if (ESTADO.concluido) { imprimirTicket(ESTADO.concluido); return; }  // pesagem já encerrada na tela: o botão só reimprime
   if (SALVANDO || !validar(encerrar)) return;
-  const d = dadosForm(); d.encerrar = encerrar;
+  const d = dadosForm(); d.encerrar = encerrar; d.modo = modo; d.chave = ESTADO.chave = ESTADO.chave || novaChave();
   SALVANDO = true; $('#btnEncerrar').disabled = $('#btnAbrir').disabled = true;
   try {
     let t;
@@ -1627,13 +1646,20 @@ async function salvar(encerrar, semImprimir, manterNaTela) {
     } catch (e) {
       const rep = e.dados?.repetido;
       if (!rep) throw e;
+      if (e.dados.mesma_passagem) {  // o caminhão ainda está na balança e já foi pesado: nunca grava outra
+        toast(`${esc(e.message)} Não foi gravado de novo.`, 'warn'); mostrarConcluido(rep); atualizarResumo();
+        if (!manterNaTela && await confirmar(`${e.message}\n\nImprimir o ticket Nº ${rep.id} de novo?`)) imprimirTicket(rep);
+        return {...rep, repetido: true};
+      }
       if (manterNaTela) {  // automático: a placa já foi pesada agora há pouco, mostra o ticket que já existe
         toast(`${esc(e.message)} Não foi gravado de novo.`, 'warn'); mostrarConcluido(rep); return {...rep, repetido: true};
       }
       if (!await confirmar(`${e.message} Gravar OUTRA pesagem desta placa mesmo assim?`)) return null;
       t = await api('tickets', {method: 'POST', body: {...d, permitir_repetido: true}});
     }
-    if (encerrar) { toast(`Ticket <b>${t.id}</b> encerrado · líquido ${fmt(t.peso_liquido)} kg`, 'ok'); if (!semImprimir) imprimir(t, $('#impFoto').checked);
+    if (t.ja_gravado) toast(`Esta pesagem já estava gravada (ticket <b>${t.id}</b>) — não gravei de novo.`, 'warn');
+    else if (encerrar) toast(`Ticket <b>${t.id}</b> encerrado · líquido ${fmt(t.peso_liquido)} kg`, 'ok');
+    if (encerrar) { if (!semImprimir) imprimirTicket(t);
       if (manterNaTela) mostrarConcluido(t); else limpar(); }
     else { toast(`Ticket <b>${t.id}</b> salvo como ABERTO. Finalize em "Tickets abertos".`, 'ok'); limpar(); }
     atualizarResumo();
@@ -1666,7 +1692,7 @@ function limpar() {
     $$('#tab-pesagem .grid > div:last-child input, #tab-pesagem .grid > div:last-child select').forEach(el => el.disabled = false);
     $('#capIni').disabled = $('#capFin').disabled = false; $('#btnEncerrar').textContent = '🖨️ Encerrar e imprimir';
   }
-  ESTADO.ticket = null; ESTADO.cliente = null; ESTADO.tag = null; $('#impFoto').checked = false;
+  ESTADO.ticket = null; ESTADO.cliente = null; ESTADO.tag = null; ESTADO.chave = null; $('#impFoto').checked = false;
   ['busca', 'placa', 'motorista', 'item', 'pesoInicial', 'pesoFinal', 'pesoOrigem', 'localDescarga', 'observacao', 'tagCodigo', 'valorManual']
     .forEach(id => { $('#' + id).value = ''; delete $('#' + id).dataset.origem; });
   $('#cliBox').classList.remove('on'); $('#tagRes').innerHTML = ''; $('#taraCad').disabled = true;
@@ -1704,6 +1730,78 @@ async function carregarTicketNoForm(id) {
   irPara('pesagem'); calcular(); $('#pesoFinal').focus();
 }
 
+// ---------- acesso remoto acompanha ao vivo a tela de pesagem deste computador ----------
+// A tela daqui publica o que está mostrando a cada segundo; o celular/computador remoto mostra igual.
+const ABA_ID = Math.random().toString(36).slice(2);
+const CAMPOS_TELA = ['busca', 'placa', 'motorista', 'item', 'pesoInicial', 'pesoFinal', 'pesoOrigem', 'localDescarga', 'observacao', 'valorManual', 'tkEmpresa'];
+const TEXTOS_TELA = ['tkNumero', 'tkEmissor', 'metaIni', 'metaFin', 'titIni', 'titFin', 'contNum', 'contTxt', 'contSub'];
+function estadoTela() {
+  const ativo = !!(ESTADO.concluido || ESTADO.ticket || ESTADO.cliente || $('#placa').value.trim() || CAM.fase !== 'ocioso');
+  if (!ativo) return {ativo, aba: ABA_ID};
+  if (!ESTADO.concluido) ESTADO.chave = ESTADO.chave || novaChave();  // a mesma chave vale para o remoto (não grava em dobro)
+  return {ativo, aba: ABA_ID, placa: $('#placa').value.trim(), cliente: ESTADO.cliente, ticket: ESTADO.ticket, concluido: ESTADO.concluido,
+    tag: ESTADO.tag, pagador: ESTADO.pagador, chave: ESTADO.chave,
+    campos: Object.fromEntries(CAMPOS_TELA.map(id => [id, $('#' + id).value])),
+    origem: {ini: $('#pesoInicial').dataset.origem || '', fin: $('#pesoFinal').dataset.origem || ''},
+    textos: Object.fromEntries(TEXTOS_TELA.map(id => [id, $('#' + id).textContent])),
+    cam: {box: !$('#camBox').hidden, msg: $('#camMsg').innerHTML, auto: $('#camBox').classList.contains('auto'),
+      placa: $('#camPlaca').hidden ? '' : $('#camPlaca').textContent, contagem: !$('#contAuto').hidden,
+      ok: $('#contAuto').classList.contains('ok'), barra: $('#contBarra').style.width}};
+}
+async function publicarTela() {
+  if (publicarTela.ocupado || SALVANDO) return;
+  publicarTela.ocupado = true;
+  try {
+    const r = await api('tela', {method: 'POST', body: estadoTela()});
+    if (r.concluido && !ESTADO.concluido && !ESTADO.ticket && !SALVANDO) {  // registrada por outra tela (ex.: celular)
+      if (CAM.fase === 'estavel') { CAM.fase = 'feito'; esconderContagem(); $('#camCancelar').hidden = true; travarCaptura(10000); }
+      mostrarConcluido(r.concluido); atualizarResumo();
+      camMsg(`✅ Pesagem registrada pelo acesso remoto — ticket <b>${r.concluido.id}</b>. Aguardando o caminhão sair da balança.`);
+      toast(`Ticket <b>${r.concluido.id}</b> encerrado pelo acesso remoto — não será gravado de novo aqui.`, 'ok');
+    }
+  } catch (e) {} finally { publicarTela.ocupado = false; }
+}
+function aplicarTela(e) {
+  if (!e?.ativo) {  // nada acontecendo na balança: libera a tela para uso próprio
+    if (ESP.ativo) { ESP.ativo = false; $('#espAviso').hidden = true; limpar(); esconderContagem(); $('#camPlaca').hidden = true; }
+    return;
+  }
+  if (!ESP.ativo && !$('#tab-pesagem').classList.contains('on') && !$('.modal-bg.on')) irPara('pesagem');
+  ESP.ativo = true; $('#espAviso').hidden = false;
+  if ((e.concluido?.id ?? null) !== (ESTADO.concluido?.id ?? null)) limpar();  // outra pesagem: começa do zero
+  if (!ESTADO.concluido) {
+    if ((e.cliente?.id ?? null) !== (ESTADO.cliente?.id ?? null)) {
+      if (e.cliente) selecionarCliente(e.cliente); else { ESTADO.cliente = null; $('#cliBox').classList.remove('on'); }
+    }
+    ESTADO.ticket = e.ticket; ESTADO.tag = e.tag; ESTADO.chave = e.chave;
+    const foco = document.activeElement;  // o que a pessoa está digitando aqui não é sobrescrito
+    for (const [id, v] of Object.entries(e.campos || {})) { const el = $('#' + id); if (el && el !== foco && el.value !== v) el.value = v; }
+    if (foco !== $('#pesoInicial')) $('#pesoInicial').dataset.origem = e.origem?.ini || '';
+    if (foco !== $('#pesoFinal')) $('#pesoFinal').dataset.origem = e.origem?.fin || '';
+    if (e.pagador && e.pagador !== ESTADO.pagador) setPagador(e.pagador);
+    $('#btnCancelar').hidden = !e.ticket;
+    if (e.concluido) mostrarConcluido(e.concluido);
+  }
+  calcular(); modoPesagem();
+  for (const [id, v] of Object.entries(e.textos || {})) if ($('#' + id)) $('#' + id).textContent = v;
+  const c = e.cam || {};
+  if (c.box && $('#camBox').hidden) { $('#camBox').hidden = false; atualizarFoto(); }
+  camMsg(c.msg || '', c.auto);
+  $('#camPlaca').textContent = c.placa || ''; $('#camPlaca').hidden = !c.placa;
+  $('#contAuto').hidden = !c.contagem; $('#contAuto').classList.toggle('ok', !!c.ok); $('#contBarra').style.width = c.barra || '0%';
+}
+async function acompanharTela() {
+  if (acompanharTela.ocupado) return;
+  acompanharTela.ocupado = true;
+  try {
+    const resp = await fetch('/api/tela');
+    if (resp.status === 401) { location.href = '/_login'; return; }
+    const r = resp.ok && resp.headers.get('X-Espelho') !== 'copia' ? await resp.json() : null;  // cópia antiga não vale
+    aplicarTela(r && r.idade < 15 ? r.estado : null);
+  } catch (e) {} finally { acompanharTela.ocupado = false; }
+}
+if (!MODO_IMG) { if (LOCAL) setInterval(publicarTela, 1000); else setInterval(acompanharTela, 1500); }
+
 // ---------- impressão ----------
 function htmlTicket(t, comFoto) {
   const ini = t.peso_inicial <= t.peso_final;
@@ -1720,7 +1818,7 @@ function htmlTicket(t, comFoto) {
     <tr><td colspan="2" class="empd"><span class="h">EMPRESA / CLIENTE</span><br><span class="emp-big">${esc(emp || '—')}</span></td>
         <td colspan="2" class="empd"><span class="h">Cobrança</span><br>${cob}</td></tr>
     <tr><td colspan="2"><span class="h">Placa</span> <span class="big">${esc(t.placa)}</span></td><td colspan="2"><span class="h">Motorista</span><br><b>${esc(t.motorista)}</b></td></tr>
-    <tr><td colspan="2"><span class="h">Items</span><br>${esc(t.item)}</td><td colspan="2"><span class="h">Emissor</span><br>${esc(t.emissor)}</td></tr>
+    <tr><td colspan="2"><span class="h">Items</span><br>${esc(t.item)}</td><td colspan="2"><span class="h">Emissor</span><br>${esc(t.emissor)}${t.modo ? `<br><span class="h">Pesagem</span> <b>${t.modo === 'AUTOMATICO' ? 'AUTOMÁTICA' : 'MANUAL'}</b>` : ''}</td></tr>
     <tr><td colspan="2" style="width:50%"><span class="h">${t.origem_inicial === 'cadastro' ? 'TARA do cadastro' : 'Pesagem Inicial'}</span><br>Data / Hora: ${dataBR(t.data_inicial)}<br>Balança: ${t.balanca_inicial ?? ''}<br>
         ${ini ? 'TARA' : 'Peso'}: <b>${fmt(t.peso_inicial)}</b> kg<br>Operador: ${esc(t.operador_inicial)}</td>
         <td colspan="2"><span class="h">Pesagem Final</span><br>Data / Hora: ${dataBR(t.data_final)}<br>Balança: ${t.balanca_final ?? ''}<br>
@@ -1742,8 +1840,8 @@ function imprimir(t, comFoto = false) {
   const imgs = $$('#print-area img').map(i => i.complete ? null : new Promise(r => { i.onload = i.onerror = r; })).filter(Boolean);
   Promise.race([Promise.all(imgs), new Promise(r => setTimeout(r, 3000))]).then(() => setTimeout(() => window.print(), 150));
 }
-async function imprimirNaBalanca(id) {
-  try { await api(`tickets/${id}/imprimir`, {method: 'POST', body: {}}); toast(`🖨️ Ticket <b>${id}</b> enviado para a impressora da balança.`, 'ok'); }
+async function imprimirNaBalanca(id, foto = false) {
+  try { await api(`tickets/${id}/imprimir`, {method: 'POST', body: {foto}}); toast(`🖨️ Ticket <b>${id}</b> enviado para a impressora da balança.`, 'ok'); }
   catch (e) { toast('Não imprimiu: ' + esc(e.message), 'err'); }
 }
 async function reimprimir(id, comFoto) { imprimir(await api('tickets/' + id), comFoto); }
@@ -1794,12 +1892,12 @@ async function carregarAbertos() {
 async function carregarTickets() {
   const l = await api('tickets?q=' + encodeURIComponent($('#buscaTickets').value));
   $('#tbTickets').innerHTML = l.map(t => `<tr><td class="acts">${t.status === 'ABERTO' ? `<button class="btn sm p" onclick="carregarTicketNoForm(${t.id})">Finalizar</button>` : ''}
-        ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="reimprimir(${t.id})" title="Reimprimir">🖨️</button>` : ''}
+        ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="reimprimir(${t.id})" title="${LOCAL ? 'Reimprimir' : 'Abrir para salvar em PDF ou enviar'}">${LOCAL ? '🖨️' : '📄 PDF'}</button>` : ''}
         ${t.status === 'ENCERRADO' && t.foto ? `<button class="btn sm" onclick="reimprimir(${t.id}, true)" title="Reimprimir com a foto da câmera">📷</button>` : ''}
         ${t.status === 'ENCERRADO' ? `<button class="btn sm" onclick="imprimirNaBalanca(${t.id})" title="Imprimir na impressora da balança (EPSON)">⚖🖨️</button>` : ''}
         <button class="btn sm" onclick="abrirTicketEdicao(${t.id})" title="Editar">✏️</button>
         <button class="btn sm d" onclick="excluirTicket(${t.id})" title="Excluir">🗑️</button></td>
-    <td>${t.id}</td><td class="st-${t.status}">${t.status}</td><td><b>${esc(t.placa)}</b></td>
+    <td>${t.id}</td><td class="st-${t.status}">${t.status}${t.modo ? `<br><small class="muted">${t.modo === 'AUTOMATICO' ? '🤖 automática' : '✋ manual'}</small>` : ''}</td><td><b>${esc(t.placa)}</b></td>
     <td class="wrap">${esc(t.empresa_nome || '')}</td><td class="wrap">${esc(t.motorista)}</td>
     <td class="wrap">${t.pagador ? (t.pagador === 'EMPRESA' ? '🏢 Empresa' : '👤 ' + esc(t.pagador_nome || 'Motorista')) : ''}${t.valor_manual != null ? ` <span class="pill">${brl(t.valor_manual)}</span>` : ''}</td><td>${esc(t.item)}</td><td class="num">${fmt(t.peso_inicial)}</td><td class="num">${fmt(t.peso_final)}</td>
     <td class="num"><b>${fmt(t.peso_liquido)}</b></td><td>${dataBR(t.data_final || t.data_inicial)}</td></tr>`).join('')

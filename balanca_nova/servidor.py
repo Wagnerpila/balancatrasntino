@@ -213,7 +213,8 @@ def preparar_banco():
         con.execute("CREATE TABLE IF NOT EXISTS nova_migracao_ignorar (tipo TEXT, chave TEXT, PRIMARY KEY (tipo, chave))")
         colunas = {r[1] for r in con.execute("PRAGMA table_info(nova_ticket)")}
         for col, tipo in (("empresa_id", "INTEGER"), ("empresa_nome", "TEXT"), ("pagador", "TEXT"),
-                          ("pagador_nome", "TEXT"), ("valor_manual", "REAL")):
+                          ("pagador_nome", "TEXT"), ("valor_manual", "REAL"),
+                          ("modo", "TEXT"), ("chave", "TEXT"), ("passagem", "TEXT")):
             if col not in colunas:
                 con.execute(f"ALTER TABLE nova_ticket ADD COLUMN {col} {tipo}")
         # "Empresa" digitada à mão nas versões anteriores vira empresa cadastrada
@@ -499,7 +500,19 @@ def salvar_cliente(dados, cliente_id=None):
 # --------------------------------------------------------------------------
 # Balança (API local do indicador WT3000 / LE 170 em 127.0.0.1:80)
 # --------------------------------------------------------------------------
+# Simulação de pesagem (para testar e acompanhar pelo celular): peso e placa falsos por alguns
+# minutos; não manda aviso no WhatsApp e não grava ticket.
+SIMULACAO = {"ate": 0.0, "placa": None, "peso": 0}
+
+
+def simulando():
+    return time.time() < SIMULACAO["ate"]
+
+
 def ler_balanca():
+    if simulando():
+        return {"ok": True, "peso": SIMULACAO["peso"], "liquido": SIMULACAO["peso"], "tara_indicador": 0,
+                "estavel": True, "unidade": "kg", "modelo": "SIMULAÇÃO", "mensagem": "OK", "simulacao": True}
     try:
         with urllib.request.urlopen(CONFIG["balanca_url"], timeout=3) as r:
             data = json.loads(r.read().decode("utf-8", "ignore"))
@@ -719,6 +732,8 @@ def buscar_por_placa(placa):
 
 def ler_placa_camera():
     """Pede ao auxiliar a placa da imagem atual e procura o cadastro."""
+    if simulando():
+        return dict(buscar_por_placa(SIMULACAO["placa"]), confianca=1.0, leituras=[], simulacao=True)
     corpo, _ = camera_get("/placa?foto=1", 15)
     resposta = json.loads(corpo)
     leituras = resposta.get("placas", [])
@@ -965,27 +980,31 @@ def avisar_entrada(inicio):
         enfileirar_whatsapp(n, texto, (r or {}).get("placa") or "")
 
 
+# Caminhão em cima da balança agora: cada subida é uma "passagem" (identificada pela hora em que entrou).
+# Uma passagem = uma pesagem: enquanto o caminhão não sai, a mesma placa não gera outro ticket.
+PASSAGEM = {"id": None}
+TELA = {"estado": None, "em": 0.0}  # última foto da tela de pesagem deste computador (para o acesso remoto)
+
+
 def vigiar_balanca():
-    """Percebe a chegada do caminhão (peso acima do mínimo da câmera)."""
-    na_balanca, vazio_desde = False, None
+    """Percebe a chegada e a saída do caminhão (peso acima do mínimo da câmera)."""
+    vazio_desde = None
     while True:
         time.sleep(1)
-        if not (CONFIG.get("whatsapp") or {}).get("ativo"):
-            na_balanca = False
-            continue
         b = ler_balanca()
         if not b["ok"] or b["peso"] is None:
             continue
         minimo = num((CONFIG.get("camera") or {}).get("peso_minimo"))
         if b["peso"] >= (100 if minimo is None else minimo):
             vazio_desde = None
-            if not na_balanca:
-                na_balanca = True
-                threading.Thread(target=avisar_entrada, args=(time.time(),), daemon=True).start()
+            if not PASSAGEM["id"]:
+                PASSAGEM["id"] = agora_local()
+                if (CONFIG.get("whatsapp") or {}).get("ativo") and not simulando():
+                    threading.Thread(target=avisar_entrada, args=(time.time(),), daemon=True).start()
         else:
             vazio_desde = vazio_desde or time.time()
             if time.time() - vazio_desde >= 10:  # só conta como saída depois de 10 s vazia
-                na_balanca = False
+                PASSAGEM["id"] = None
 
 
 # --------------------------------------------------------------------------
@@ -1155,7 +1174,7 @@ CAMPOS_TICKET = [
     "peso_inicial", "data_inicial", "operador_inicial", "balanca_inicial", "origem_inicial",
     "peso_final", "data_final", "operador_final", "balanca_final", "origem_final",
     "peso_origem", "local_descarga", "observacao",
-    "empresa_id", "pagador", "pagador_nome", "valor_manual",
+    "empresa_id", "pagador", "pagador_nome", "valor_manual", "modo", "chave",
 ]
 
 
@@ -1166,9 +1185,31 @@ TICKET_LOCK = threading.Lock()
 class TicketRepetido(ValueError):
     """Já existe pesagem da mesma placa há poucos minutos."""
 
-    def __init__(self, t):
+    def __init__(self, t, mesma_passagem=False):
         self.ticket = t
-        super().__init__(f"A placa {t['placa']} já foi pesada há pouco (ticket Nº {t['id']}, {t['status'].lower()}).")
+        self.mesma_passagem = mesma_passagem
+        if mesma_passagem:
+            msg = (f"A pesagem da placa {t['placa']} já foi registrada (ticket Nº {t['id']}, "
+                   f"{'automática' if t.get('modo') == 'AUTOMATICO' else 'manual'}) e o caminhão ainda não saiu da balança.")
+        else:
+            msg = f"A placa {t['placa']} já foi pesada há pouco (ticket Nº {t['id']}, {t['status'].lower()})."
+        super().__init__(msg)
+
+
+def mesma_placa(t, chave, cliente_id):
+    return (chave and chave_placa(t["placa"] or "") == chave) or (cliente_id and t["cliente_id"] == cliente_id)
+
+
+def ticket_da_passagem(con, placa, cliente_id):
+    """Ticket desta placa feito com o caminhão ainda em cima da balança (a mesma passagem)."""
+    if not PASSAGEM["id"]:
+        return None
+    chave = chave_placa(placa or "")
+    for t in con.execute("SELECT * FROM nova_ticket WHERE status != 'CANCELADO' AND passagem = ? ORDER BY id DESC",
+                         (PASSAGEM["id"],)):
+        if mesma_placa(t, chave, cliente_id):
+            return ticket_calculado(t)
+    return None
 
 
 def ticket_repetido(con, placa, cliente_id):
@@ -1179,7 +1220,7 @@ def ticket_repetido(con, placa, cliente_id):
     desde = (datetime.now() - timedelta(minutes=minutos)).strftime("%Y-%m-%d %H:%M:%S")
     chave = chave_placa(placa or "")
     for t in con.execute("SELECT * FROM nova_ticket WHERE status != 'CANCELADO' AND criado_em >= ? ORDER BY id DESC", (desde,)):
-        if (chave and chave_placa(t["placa"] or "") == chave) or (cliente_id and t["cliente_id"] == cliente_id):
+        if mesma_placa(t, chave, cliente_id):
             return ticket_calculado(t)
     return None
 
@@ -1277,6 +1318,8 @@ def excluir_ticket(tid):
 
 
 def salvar_ticket(dados, tid=None):
+    if simulando():
+        raise ValueError("Simulação de pesagem em andamento: nenhum ticket é gravado.")
     valores = {c: dados[c] for c in CAMPOS_TICKET if c in dados}
     for c in ("peso_inicial", "peso_final", "peso_origem", "valor_manual"):
         if c in valores:
@@ -1292,8 +1335,17 @@ def salvar_ticket(dados, tid=None):
     if valores.get("peso_final") is not None and not valores.get("data_final"):
         valores["data_final"] = agora
     valores["atualizado_em"] = agora
+    if "modo" in valores:
+        valores["modo"] = "AUTOMATICO" if valores["modo"] == "AUTOMATICO" else "MANUAL"
+    if not valores.get("chave"):
+        valores.pop("chave", None)
 
     with TICKET_LOCK, conectar() as con:
+        # o mesmo pedido chegando de novo (clique repetido, reenvio pela internet) devolve o ticket já gravado
+        if valores.get("chave"):
+            ja = con.execute("SELECT * FROM nova_ticket WHERE chave = ? AND status != 'CANCELADO'", (valores["chave"],)).fetchone()
+            if ja and (ja["status"] == "ENCERRADO" or not dados.get("encerrar")):
+                return dict(ticket_calculado(ja), ja_gravado=True)
         # par motorista + empresa: o nome da empresa vem do cadastro de empresas
         if "empresa_id" in valores:
             if valores["empresa_id"]:
@@ -1316,18 +1368,27 @@ def salvar_ticket(dados, tid=None):
             atual = con.execute("SELECT status FROM nova_ticket WHERE id = ?", (tid,)).fetchone()
             if not atual:
                 raise ValueError("Ticket não encontrado.")
+            if atual["status"] == "ENCERRADO" and dados.get("encerrar") and not dados.get("editar"):
+                return dict(obter_ticket(con, tid), ja_gravado=True)  # já encerrado: não grava de novo
             if atual["status"] != "ABERTO" and not dados.get("editar"):
                 raise ValueError(f"Ticket {tid} já está {atual['status'].lower()}.")
+            if dados.get("encerrar") and not dados.get("editar"):
+                valores["passagem"] = PASSAGEM["id"]
             sets = ", ".join(f"{c} = ?" for c in valores)
             con.execute(f"UPDATE nova_ticket SET {sets} WHERE id = ?", (*valores.values(), tid))
         else:
             if valores.get("peso_inicial") is None:
                 raise ValueError("Informe o peso inicial.")
+            # caminhão ainda na balança e já pesado: nunca grava outra (nem com "gravar mesmo assim")
+            da_passagem = ticket_da_passagem(con, valores.get("placa"), valores.get("cliente_id"))
+            if da_passagem:
+                raise TicketRepetido(da_passagem, mesma_passagem=True)
             if not dados.get("permitir_repetido"):
                 repetido = ticket_repetido(con, valores.get("placa"), valores.get("cliente_id"))
                 if repetido:
                     raise TicketRepetido(repetido)
             valores["criado_em"] = agora
+            valores["passagem"] = PASSAGEM["id"]
             cols = ", ".join(valores)
             marks = ", ".join("?" for _ in valores)
             tid = con.execute(f"INSERT INTO nova_ticket ({cols}) VALUES ({marks})", tuple(valores.values())).lastrowid
@@ -2689,12 +2750,43 @@ class Handler(BaseHTTPRequestHandler):
                         res["resposta_bruta"] = bruto
                     return self._json(res)
 
+            if r[:1] == ["simulacao"]:  # só neste computador: POST {placa, peso, segundos}; DELETE encerra
+                if self.headers.get("X-Espelho"):
+                    return self._json({"erro": "Só no computador da balança."}, 403)
+                if metodo == "POST":
+                    d = self._corpo()
+                    SIMULACAO.update(placa=placa_padrao(d.get("placa") or ""), peso=num(d.get("peso")) or 30000,
+                                     ate=time.time() + min(600, num(d.get("segundos")) or 180))
+                elif metodo == "DELETE":
+                    SIMULACAO["ate"] = 0.0
+                return self._json({"ativa": simulando(), "placa": SIMULACAO["placa"], "peso": SIMULACAO["peso"],
+                                   "falta": max(0, round(SIMULACAO["ate"] - time.time()))})
+
+            if r[:1] == ["tela"]:  # o que a tela de pesagem deste computador está mostrando (o celular acompanha)
+                if metodo == "POST":
+                    if self.headers.get("X-Espelho"):
+                        return self._json({"erro": "Só a tela do computador da balança publica o estado."}, 403)
+                    e = self._corpo()
+                    # com duas abas abertas aqui, a aba parada não apaga o que a outra está mostrando
+                    if (e.get("ativo") or not (TELA["estado"] or {}).get("ativo") or TELA.get("aba") == e.get("aba")
+                            or time.time() - TELA["em"] > 5):
+                        TELA.update(estado=e, em=time.time(), aba=e.get("aba"))
+                    feito = None  # pesagem desta placa já registrada por outra tela (ex.: pelo celular)
+                    if e.get("ativo") and not e.get("concluido") and not e.get("ticket") and e.get("placa"):
+                        with conectar() as con:
+                            feito = ticket_da_passagem(con, e["placa"], (e.get("cliente") or {}).get("id"))
+                    return self._json({"ok": True, "concluido": feito})
+                return self._json({"estado": TELA["estado"], "idade": round(time.time() - TELA["em"], 1),
+                                   "passagem": PASSAGEM["id"]})
+
             if r[:1] == ["tickets"]:
                 if len(r) == 1 and metodo == "GET":
                     return self._json(listar_tickets(q.get("status"), q.get("q", "")))
                 if len(r) == 1 and metodo == "POST":
                     d = self._corpo()
                     t = salvar_ticket(d)
+                    if t.get("ja_gravado"):
+                        return self._json(t)
                     if d.get("encerrar") and guardar_foto_ticket(t["id"]):
                         t["foto"] = True
                     if d.get("encerrar"):
@@ -2732,6 +2824,8 @@ class Handler(BaseHTTPRequestHandler):
                 if metodo == "PUT":
                     d = self._corpo()
                     t = salvar_ticket(d, tid)
+                    if t.get("ja_gravado"):
+                        return self._json(t)
                     if d.get("encerrar") and not t.get("foto") and guardar_foto_ticket(tid):
                         t["foto"] = True
                     if d.get("encerrar"):
@@ -2778,7 +2872,7 @@ class Handler(BaseHTTPRequestHandler):
 
             return self._json({"erro": "rota não encontrada"}, 404)
         except TicketRepetido as e:
-            return self._json({"erro": str(e), "repetido": e.ticket}, 409)
+            return self._json({"erro": str(e), "repetido": e.ticket, "mesma_passagem": e.mesma_passagem}, 409)
         except ValueError as e:
             return self._json({"erro": str(e)}, 400)
         except Exception as e:  # noqa: BLE001

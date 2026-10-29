@@ -50,7 +50,7 @@ def bloqueado(metodo, caminho):
 # respostas que mudam a cada segundo não vão para a cópia
 def guardar_em_cache(caminho):
     p = urllib.parse.urlsplit(caminho).path
-    return not any(p.startswith(x) for x in ("/api/peso", "/api/camera", "/api/tag"))
+    return not any(p.startswith(x) for x in ("/api/peso", "/api/camera", "/api/tag", "/api/tela"))
 
 
 # A sessão fica no próprio cookie, assinada com a senha: reiniciar ou fazer deploy
