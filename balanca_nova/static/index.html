@@ -1392,7 +1392,7 @@ function liberarCaptura() {
 }
 function camResetar() {
   clearInterval(CAM.timer); Object.assign(CAM, {fase: 'ocioso', tentativas: 0, estavelDesde: null, timer: null, placa: null,
-    desde: 0, entrada: 0, alertaInst: false, ultimoErro: ''});
+    desde: 0, entrada: 0, alertaInst: false, ultimoErro: '', manual: false, novo: false});
   $('#camPlaca').hidden = true; $('#camConta').hidden = true; $('#camCancelar').hidden = true;
 }
 function atualizarFoto() {
@@ -1419,7 +1419,7 @@ function cicloCamera() {
   if ($('#camBox').hidden) { $('#camBox').hidden = false; atualizarFoto(); }
   if (!LOCAL) { if (!ESP.ativo) camMsg('🌐 Acesso remoto — a pesagem automática é feita no computador da balança.'); return; }
   if (CAM.fase === 'ocioso') {
-    CAM.fase = 'placa'; CAM.entrada = Date.now();  // a contagem para capturar o peso começa na entrada
+    CAM.fase = 'placa'; CAM.entrada = Date.now(); CAM.novo = true;  // a contagem para capturar o peso começa na entrada
     if (!$('#tab-pesagem').classList.contains('on') && !$('.modal-bg.on')) irPara('pesagem');
     if (!cm.ler_placa) { CAM.fase = 'feito'; camMsg('Caminhão na balança.'); }
     else camMsg('🔍 Lendo a placa…');
@@ -1437,10 +1437,11 @@ function cicloCamera() {
     capturarEFinalizar();
   }
 }
+// a placa só é aceita quando o servidor confirma (a mesma leitura repetida); até lá continua lendo
 async function lerPlacaCamera(manual) {
-  CAM.lendo = true; CAM.tentativas++;
+  CAM.lendo = true; CAM.tentativas++; manual = manual || CAM.manual;
   try {
-    const r = await api('camera/placa');
+    const r = await api('camera/placa' + (CAM.novo ? '?novo=1' : '')); CAM.novo = false;
     if (!r.placa) {
       CAM.ultimoErro = r.erro || '';
       if (r.erro) camMsg('⚠️ ' + esc(r.erro));
@@ -1449,6 +1450,12 @@ async function lerPlacaCamera(manual) {
       return;
     }
     if (CAM.fase !== 'placa') return;
+    const cadastrada = !!(r.clientes.length || r.ticket_aberto);
+    if (!r.confirmada && CAM.tentativas < LIMITE_LEITURAS) {
+      $('#camPlaca').textContent = r.placa + ' ?'; $('#camPlaca').hidden = false;
+      camMsg(`🔍 Lida <b>${esc(r.placa)}</b>${cadastrada ? '' : ' (sem cadastro)'} — conferindo com mais leituras… (${r.vezes} de ${r.total} iguais)`);
+      return;
+    }
     CAM.placa = r.placa; $('#camPlaca').textContent = r.placa; $('#camPlaca').hidden = false;
     const naTela = $('#placa').value.trim();
     if (!manual && naTela && chavePlaca(naTela) === chavePlaca(r.placa)) {
@@ -1456,7 +1463,7 @@ async function lerPlacaCamera(manual) {
     } else if (!manual && naTela) {
       CAM.fase = 'feito';
       camMsg(`Placa lida <b>${esc(r.placa)}</b> é diferente da tela (<b>${esc(naTela)}</b>). <button class="btn sm p" id="camUsar">Usar placa lida</button>`);
-      $('#camUsar').onclick = () => { CAM.fase = 'placa'; CAM.tentativas = 0; lerPlacaCamera(true); };
+      $('#camUsar').onclick = () => { CAM.fase = 'placa'; CAM.tentativas = 0; CAM.manual = true; lerPlacaCamera(); };
       return;
     } else if (r.ticket_aberto) {
       await carregarTicketNoForm(r.ticket_aberto);
@@ -1471,15 +1478,19 @@ async function lerPlacaCamera(manual) {
       alertaOperador(`Placa <b>${esc(r.placa)}</b> lida, mas <b>não está cadastrada</b>. Cadastre o veículo ou escolha o cadastro e <b>finalize a pesagem manualmente</b>.`, 'placa_sem_cadastro', r.placa);
       return;
     }
-    if (CFG.camera.pesagem_automatica) { CAM.fase = 'estavel'; CAM.desde = Date.now(); $('#camCancelar').hidden = false; }
+    if (!r.confirmada) {  // esgotou as leituras sem repetir: carrega, mas o operador confere e finaliza
+      CAM.fase = 'feito';
+      camMsg(`Placa lida <b>${esc(r.placa)}</b>, mas sem confirmar — confira o cadastro e finalize a pesagem.`);
+      if (!manual) alertaOperador(`A placa <b>${esc(r.placa)}</b> não foi lida com certeza. <b>Confira se o cadastro carregado é o certo</b> e finalize a pesagem manualmente.`, 'placa_nao_lida', r.placa);
+    } else if (CFG.camera.pesagem_automatica) { CAM.fase = 'estavel'; CAM.desde = Date.now(); $('#camCancelar').hidden = false; }
     else { CAM.fase = 'feito'; camMsg(`Placa <b>${esc(r.placa)}</b> — cadastro carregado. Capture o peso e salve.`); }
   } catch (e) { CAM.ultimoErro = e.message; camMsg('⚠️ ' + esc(e.message)); }
   finally {
     CAM.lendo = false;
-    if (!manual && CAM.fase === 'placa' && CAM.tentativas >= LIMITE_LEITURAS) {  // desistiu: operador finaliza à mão
+    if (CAM.fase === 'placa' && CAM.tentativas >= LIMITE_LEITURAS) {  // desistiu: operador finaliza à mão
       CAM.fase = 'feito';
       camMsg('Não consegui ler a placa — finalize a pesagem manualmente.');
-      alertaOperador(`<b>Não foi possível ler a placa do veículo</b>${CAM.ultimoErro ? ' (' + esc(CAM.ultimoErro) + ')' : ''}. Finalize a pesagem manualmente: busque o cadastro, confira a TARA, capture o peso e clique em <b>"Encerrar e imprimir"</b>.`,
+      if (!manual) alertaOperador(`<b>Não foi possível ler a placa do veículo</b>${CAM.ultimoErro ? ' (' + esc(CAM.ultimoErro) + ')' : ''}. Finalize a pesagem manualmente: busque o cadastro, confira a TARA, capture o peso e clique em <b>"Encerrar e imprimir"</b>.`,
         CAM.ultimoErro ? 'camera' : 'placa_nao_lida');
     }
   }
@@ -1554,7 +1565,7 @@ if (!LOCAL && !MODO_IMG) {  // acesso pela internet: mostra se o computador da b
 }
 $('#camLer').onclick = () => {
   if (CAM.lendo || CAM.fase === 'estavel') return;
-  CAM.fase = 'placa'; CAM.tentativas = 0; lerPlacaCamera(true);
+  CAM.fase = 'placa'; CAM.tentativas = 0; CAM.manual = true; CAM.novo = true; lerPlacaCamera();
 };
 
 // ---------- tags ----------

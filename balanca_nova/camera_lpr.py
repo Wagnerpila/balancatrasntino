@@ -66,10 +66,11 @@ def ler_video(url):
 
 
 def frame_atual(idade=10):
+    """Imagem mais recente e a hora em que chegou (identifica o quadro do vídeo)."""
     with ESTADO["lock"]:
         if ESTADO["frame"] is None or time.time() - ESTADO["quando"] > idade:
-            return None
-        return ESTADO["frame"].copy()
+            return None, None
+        return ESTADO["frame"].copy(), ESTADO["quando"]
 
 
 def modelo_alpr():
@@ -120,7 +121,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"ok": ok, "mensagem": "Vídeo OK" if ok else ESTADO["erro"],
                                "leitor_placa": ALPR["erro"] or ("pronto" if ALPR["modelo"] else "carrega na 1ª leitura")})
         q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
-        frame = frame_atual(min(float(q.get("idade", ["10"])[0]), 60))
+        frame, quando = frame_atual(min(float(q.get("idade", ["10"])[0]), 60))
         if frame is None:
             return self._json({"erro": ESTADO["erro"] or "Sem imagem"}, 503)
         if caminho == "/foto.jpg":
@@ -137,7 +138,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 ALPR["erro"] = f"{type(e).__name__}: {e}"
                 return self._json({"placas": [], "erro": ALPR["erro"]})
-            res = {"placas": placas}
+            res = {"placas": placas, "quando": quando}
             if placas and q.get("foto"):  # a imagem exata em que a placa foi lida
                 ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
                 if ok:

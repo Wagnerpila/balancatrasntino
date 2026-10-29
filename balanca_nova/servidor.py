@@ -730,21 +730,74 @@ def buscar_por_placa(placa):
     return {"placa": placa_padrao(placa), "clientes": clientes, "ticket_aberto": ticket}
 
 
-def ler_placa_camera():
-    """Pede ao auxiliar a placa da imagem atual e procura o cadastro."""
+# Todas as leituras do caminhão que está na balança. Uma leitura sozinha não basta: com o
+# caminhão ainda andando ou a placa suja o OCR erra um caractere. A placa só é confirmada
+# quando se repete (ou quando a junção das leituras, letra por letra, bate com um cadastro).
+LEITURAS = {"passagem": None, "em": 0.0, "quadro": None, "votos": {}, "lista": []}
+LEITURAS_LOCK = threading.Lock()
+CONFIRMA_CADASTRO = 2  # leituras iguais para aceitar uma placa cadastrada
+CONFIRMA_SEM_CADASTRO = 4  # leituras iguais para dizer que a placa não está cadastrada
+PLACA_RE = r"[A-Z]{3}\d[A-Z0-9]\d{2}"
+
+
+def placa_combinada(lista):
+    """Junta as leituras letra por letra: em cada posição vence o caractere mais lido."""
+    if len(lista) < 3:
+        return None
+    return "".join(max(set(p), key=p.count) for p in zip(*lista))
+
+
+def ler_placa_camera(novo=False):
+    """Lê a placa da imagem atual, soma com as leituras anteriores do mesmo caminhão e procura o cadastro.
+    'confirmada' só fica True quando a placa se repetiu; antes disso a tela continua lendo."""
     if simulando():
-        return dict(buscar_por_placa(SIMULACAO["placa"]), confianca=1.0, leituras=[], simulacao=True)
+        return dict(buscar_por_placa(SIMULACAO["placa"]), confianca=1.0, leituras=[], simulacao=True, confirmada=True)
     corpo, _ = camera_get("/placa?foto=1", 15)
     resposta = json.loads(corpo)
     leituras = resposta.get("placas", [])
-    validas = [x for x in leituras if (x.get("confianca") or 0) >= 0.6
-               and re.fullmatch(r"[A-Z]{3}\d[A-Z0-9]\d{2}", placa_padrao(x["texto"]))]
-    if not validas:
+    validas = [x for x in leituras if (x.get("confianca") or 0) >= 0.6 and re.fullmatch(PLACA_RE, placa_padrao(x["texto"]))]
+    with LEITURAS_LOCK:
+        L = LEITURAS
+        if novo or L["passagem"] != PASSAGEM["id"] or time.time() - L["em"] > 120:
+            L.update(passagem=PASSAGEM["id"], quadro=None, votos={}, lista=[])
+        quadro = resposta.get("quando")
+        if validas and (quadro is None or quadro != L["quadro"]):  # a mesma imagem não vota duas vezes
+            melhor = max(validas, key=lambda x: x.get("confianca") or 0)
+            ch, conf = chave_placa(melhor["texto"]), melhor.get("confianca") or 0
+            v = L["votos"].setdefault(ch, {"n": 0, "conf": -1, "texto": melhor["texto"], "foto": None})
+            v["n"] += 1
+            if conf >= v["conf"]:
+                v.update(conf=conf, texto=melhor["texto"], foto=resposta.get("foto") or v["foto"])
+            L["lista"].append(ch)
+            L.update(em=time.time(), quadro=quadro)
+        votos, lista = {k: dict(v) for k, v in L["votos"].items()}, list(L["lista"])
+    if not votos:
         return {"placa": None, "leituras": leituras}
-    melhor = max(validas, key=lambda x: x.get("confianca") or 0)
-    r = dict(buscar_por_placa(melhor["texto"]), confianca=melhor.get("confianca"), leituras=leituras)
-    foto = base64.b64decode(resposta["foto"]) if resposta.get("foto") else None
-    ULTIMA_PLACA.update(quando=time.time(), r=r, foto=foto)
+
+    def tem_cadastro(r):
+        return bool(r["clientes"] or r["ticket_aberto"])
+
+    achados = {ch: buscar_por_placa(v["texto"]) for ch, v in votos.items()}
+    ordem = sorted(votos, key=lambda ch: (tem_cadastro(achados[ch]), votos[ch]["n"], votos[ch]["conf"]), reverse=True)
+    escolhida, confirmada, r = ordem[0], False, None
+    if tem_cadastro(achados[escolhida]) and votos[escolhida]["n"] >= CONFIRMA_CADASTRO:
+        confirmada = True
+    else:
+        comb = placa_combinada(lista)
+        rc = buscar_por_placa(comb) if comb and re.fullmatch(PLACA_RE, placa_padrao(comb)) else None
+        if rc and tem_cadastro(rc):  # leituras com um caractere errado cada, que juntas dão a placa cadastrada
+            confirmada, r = True, rc
+            escolhida = comb if comb in votos else max(votos, key=lambda ch: votos[ch]["conf"])
+            if rc["clientes"]:
+                rc["placa"] = placa_padrao(rc["clientes"][0]["placa"])
+        else:
+            escolhida = max(votos, key=lambda ch: (votos[ch]["n"], tem_cadastro(achados[ch]), votos[ch]["conf"]))
+            confirmada = not tem_cadastro(achados[escolhida]) and votos[escolhida]["n"] >= CONFIRMA_SEM_CADASTRO
+    v = votos[escolhida]
+    r = dict(r or achados[escolhida], confianca=v["conf"], leituras=leituras, confirmada=confirmada,
+             vezes=v["n"], total=len(lista))
+    if confirmada:
+        ULTIMA_PLACA.update(quando=time.time(), r=r, foto=base64.b64decode(v["foto"]) if v["foto"] else None)
     return r
 
 
@@ -970,7 +1023,7 @@ def avisar_entrada(inicio):
                 break
             if time.time() - inicio > 6:  # a tela não leu (ou está fechada): lê aqui
                 try:
-                    if ler_placa_camera().get("placa"):
+                    if ler_placa_camera().get("confirmada"):
                         continue
                 except (urllib.error.URLError, OSError, ValueError):
                     pass
@@ -2582,7 +2635,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(camera_status())
                 if r[1:] == ["placa"]:
                     try:
-                        return self._json(ler_placa_camera())
+                        return self._json(ler_placa_camera(novo=q.get("novo") == "1"))
                     except (urllib.error.URLError, OSError) as e:
                         return self._json({"placa": None, "erro": f"Câmera indisponível: {e}"})
                 if r[1:] == ["buscar"]:
