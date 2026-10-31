@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import sqlite3
 import ssl
 import subprocess
@@ -39,7 +40,8 @@ DEFAULT_CONFIG = {
     "porta": 8080,
     "banco_dados": "../balanca/db.sqlite3",
     "empresa": "BALANÇA TRANSTINO",
-    "balanca_url": "http://127.0.0.1:80/peso/?fmt=1",
+    "balanca_url": "",  # só se a leitura direta pela serial estiver desligada (antigo Gateway Virtual)
+    "balanca_serial": {"ativo": True, "porta": "COM3", "baud": 9600, "segundos_sem_sinal": 5},
     "numero_balanca": 1,
     "vias_impressao": 2,
     "impressora": "",
@@ -509,10 +511,175 @@ def simulando():
     return time.time() < SIMULACAO["ate"]
 
 
+# --------------------------------------------------------------------------
+# Leitura direta do indicador WT27R pela porta serial (USB Prolific, COM3), sem o
+# "Gateway Virtual" da Weightech. O indicador manda sozinho, várias vezes por
+# segundo, uma linha de 27 caracteres (9600 8N1):
+#     E,BBBBBBB,TTTTTTT,LLLLLLL\r\n
+# E = 0 estável / 1 instável; B = bruto; T = tara; L = líquido ("OL" = sobrecarga).
+# Comando para zerar (não usado aqui): "MZ\r\n".
+# --------------------------------------------------------------------------
+SERIAL = {"porta": None, "aberta": False, "erro": None, "leitura": None, "em": 0.0, "bruto": "",
+          "quadros": 0, "invalidos": 0, "reconexoes": 0, "aberta_em": 0.0, "reset": False, "sem_sinal": False}
+QUADRO_RE = re.compile(r"([01]),([^,]{7}),([^,]{7}),([^,]{7})\s*$")
+
+
+def cfg_serial():
+    return CONFIG.get("balanca_serial") or {}
+
+
+def interpretar_quadro(linha):
+    """Uma linha do indicador → leitura, ou None se veio truncada/corrompida."""
+    m = QUADRO_RE.search(linha.strip("\r\n"))
+    if not m:
+        return None
+    valores = []
+    for campo in m.groups()[1:]:
+        campo = campo.strip().replace(",", ".")
+        if "OL" in campo:
+            return {"sobrecarga": True}
+        try:
+            valores.append(float(campo))
+        except ValueError:
+            return None
+    bruto, tara, liquido = (int(v) if v == int(v) else v for v in valores)
+    return {"estavel": m.group(1) == "0", "bruto": bruto, "tara": tara, "liquido": liquido}
+
+
+def escolher_porta(cfg):
+    """A porta da config; se ela sumir (cabo trocado de USB), procura o adaptador Prolific/USB-serial."""
+    porta = cfg.get("porta") or "COM3"
+    if "://" in porta:  # socket://ip:porta (testes ou conversor serial-rede)
+        return porta
+    try:
+        from serial.tools import list_ports
+        portas = list(list_ports.comports())
+    except Exception:  # noqa: BLE001
+        return porta
+    if not portas or any(p.device.upper() == porta.upper() for p in portas):
+        return porta
+    for p in portas:
+        if re.search(r"prolific|pl2303|usb.?serial|ch340|ftdi|cp210", f"{p.description} {p.hwid}", re.I):
+            return p.device
+    return porta
+
+
+def leitor_serial():
+    """Mantém a COM3 aberta lendo o display. Sem sinal por alguns segundos → fecha e abre de novo sozinho."""
+    try:
+        import serial
+    except ImportError:
+        SERIAL["erro"] = "Biblioteca pyserial não instalada (pip install pyserial)."
+        return
+    ultimo_erro = None
+    while True:
+        cfg = cfg_serial()
+        if not cfg.get("ativo", True):
+            SERIAL.update(aberta=False, erro="Leitura direta desligada na configuração.")
+            time.sleep(2)
+            continue
+        porta = escolher_porta(cfg)
+        SERIAL["reset"] = False
+        try:
+            s = serial.serial_for_url(porta, int(cfg.get("baud") or 9600), bytesize=8, parity="N", stopbits=1, timeout=0.5)
+        except Exception as e:  # noqa: BLE001
+            msg = str(e)
+            if "PermissionError" in msg or "Acesso negado" in msg or "Access is denied" in msg:
+                msg = f"{porta} ocupada por outro programa (Gateway Virtual / WT-Rodo?). {msg}"
+            SERIAL.update(aberta=False, porta=porta, erro=msg)
+            if msg != ultimo_erro and not SERIAL["sem_sinal"]:
+                monitor("balanca", f"Não consegui abrir a {porta}: {msg}", nivel="erro")
+            SERIAL["sem_sinal"] = True
+            ultimo_erro = msg
+            time.sleep(3)
+            continue
+        ultimo_erro = None
+        SERIAL.update(porta=porta, aberta=True, erro=None, aberta_em=time.time())
+        print(f"Balança: lendo direto da {porta}")
+        buf = b""
+        try:
+            while not SERIAL["reset"]:
+                dado = s.read(256)
+                if dado:
+                    buf = (buf + dado)[-2000:]
+                    *linhas, buf = buf.split(b"\n")
+                    for ln in linhas:
+                        texto = ln.decode("latin-1").strip("\r")
+                        leitura = interpretar_quadro(texto)
+                        if leitura is None:
+                            SERIAL["invalidos"] += 1
+                            continue
+                        SERIAL.update(leitura=leitura, em=time.time(), bruto=texto)
+                        SERIAL["quadros"] += 1
+                        if SERIAL["sem_sinal"]:
+                            SERIAL["sem_sinal"] = False
+                            monitor("balanca", f"Sinal da balança voltou ({porta}).", nivel="ok")
+                limite = float(cfg.get("segundos_sem_sinal") or 5)
+                if time.time() - max(SERIAL["em"], SERIAL["aberta_em"]) > limite:
+                    if not SERIAL["sem_sinal"]:
+                        SERIAL["sem_sinal"] = True
+                        monitor("balanca", f"Balança sem sinal há {limite:g} s na {porta}: reabrindo a porta.", nivel="erro")
+                    break  # fecha e abre de novo (o adaptador USB às vezes trava)
+        except Exception as e:  # noqa: BLE001  (cabo USB tirado, etc.)
+            SERIAL["erro"] = str(e)
+            if not SERIAL["sem_sinal"]:  # registra uma vez por queda; a volta do sinal também é registrada
+                SERIAL["sem_sinal"] = True
+                monitor("balanca", f"Perdi a conexão com a balança na {porta}: {e}. Tentando reabrir sozinho.", nivel="erro")
+        finally:
+            try:
+                s.close()
+            except Exception:  # noqa: BLE001
+                pass
+            SERIAL["aberta"] = False
+            SERIAL["reconexoes"] += 1
+        time.sleep(1)
+
+
+def resetar_balanca():
+    """Botão "Resetar conexão": fecha a porta e abre de novo; espera até 4 s pelo primeiro peso."""
+    SERIAL["reset"] = True
+    monitor("balanca", "Conexão da balança resetada pelo operador.", nivel="aviso")
+    fim = time.time() + 8
+    while time.time() < fim and (SERIAL["reset"] or not SERIAL["aberta"]):  # espera fechar e abrir de novo
+        time.sleep(0.1)
+    antes = SERIAL["quadros"]
+    while time.time() < fim and SERIAL["quadros"] == antes:  # e chegar um peso novo
+        time.sleep(0.1)
+    return dict(status_serial(), voltou=SERIAL["aberta"] and SERIAL["quadros"] != antes)
+
+
+def status_serial():
+    idade = time.time() - SERIAL["em"] if SERIAL["em"] else None
+    return {"porta": SERIAL["porta"], "aberta": SERIAL["aberta"], "erro": SERIAL["erro"],
+            "sinal": idade is not None and idade < 3, "ultimo_ha": round(idade, 1) if idade is not None else None,
+            "ultimo_quadro": SERIAL["bruto"], "quadros": SERIAL["quadros"], "invalidos": SERIAL["invalidos"],
+            "reconexoes": SERIAL["reconexoes"], "leitura": SERIAL["leitura"],
+            "aberta_desde": datetime.fromtimestamp(SERIAL["aberta_em"]).strftime("%Y-%m-%d %H:%M:%S") if SERIAL["aberta"] else None}
+
+
+def peso_formato_gateway(b):
+    """Mesmo JSON que o Gateway Virtual dava em /peso/?fmt=1 (para o sistema antigo continuar lendo)."""
+    return {"id": "1", "model": "WT27R", "net": b.get("liquido"), "gross": b.get("peso"), "tare": b.get("tara_indicador"),
+            "is_net": bool(b.get("tara_indicador")), "is_stable": bool(b.get("estavel")), "unity": "kg",
+            "decimal_places": 0, "status": "ok" if b.get("ok") else "erro", "status_msg": "" if b.get("ok") else b.get("mensagem")}
+
+
 def ler_balanca():
     if simulando():
         return {"ok": True, "peso": SIMULACAO["peso"], "liquido": SIMULACAO["peso"], "tara_indicador": 0,
                 "estavel": True, "unidade": "kg", "modelo": "SIMULAÇÃO", "mensagem": "OK", "simulacao": True}
+    if cfg_serial().get("ativo", True):
+        L = SERIAL["leitura"]
+        if L and time.time() - SERIAL["em"] < 3:
+            if L.get("sobrecarga"):
+                return {"ok": False, "peso": None, "estavel": False, "unidade": "kg", "fonte": "serial",
+                        "mensagem": "SOBRECARGA no indicador"}
+            return {"ok": True, "peso": L["bruto"], "liquido": L["liquido"], "tara_indicador": L["tara"],
+                    "estavel": L["estavel"], "unidade": "kg", "modelo": f"WT27R · {SERIAL['porta']}",
+                    "mensagem": "OK", "fonte": "serial"}
+        erro = SERIAL["erro"] or (f"Sem sinal do indicador na {SERIAL['porta']}" if SERIAL["aberta"] else "Abrindo a porta da balança…")
+        if not CONFIG.get("balanca_url"):
+            return {"ok": False, "peso": None, "estavel": False, "unidade": "kg", "fonte": "serial", "mensagem": erro}
     try:
         with urllib.request.urlopen(CONFIG["balanca_url"], timeout=3) as r:
             data = json.loads(r.read().decode("utf-8", "ignore"))
@@ -546,6 +713,104 @@ def registrar_falha(tipo, mensagem, placa=""):
         os.makedirs(LOGS_DIR, exist_ok=True)
         with open(FALHAS_LOG, "a", encoding="utf-8") as f:
             f.write(linha + "\n")
+    monitor("falha", " ".join(str(mensagem or "").split()), placa, nivel="erro", falha=str(tipo or ""))
+
+
+# --------------------------------------------------------------------------
+# Monitor das pesagens (logs/monitor.jsonl): tudo o que aconteceu em cada subida
+# de caminhão — entrada, cada leitura da placa, ticket (automático ou manual),
+# problemas e a saída — e os eventos da conexão com a balança.
+# --------------------------------------------------------------------------
+MONITOR_LOG = os.path.join(LOGS_DIR, "monitor.jsonl")
+_SEM = object()
+
+
+def monitor(tipo, msg, placa=None, passagem=_SEM, nivel="info", **extra):
+    ev = {"quando": agora_local(), "tipo": tipo, "msg": msg, "nivel": nivel,
+          "passagem": PASSAGEM["id"] if passagem is _SEM else passagem}
+    if placa and placa != "-":
+        ev["placa"] = placa
+    if simulando():
+        ev["simulacao"] = True
+    ev.update({k: v for k, v in extra.items() if v is not None})
+    try:
+        with LOG_LOCK:
+            os.makedirs(LOGS_DIR, exist_ok=True)
+            with open(MONITOR_LOG, "a", encoding="utf-8") as f:
+                f.write(json.dumps(ev, ensure_ascii=False, default=str) + "\n")
+    except OSError:
+        pass
+
+
+def ler_monitor(horas=48, limite=20000):
+    if not os.path.isfile(MONITOR_LOG):
+        return []
+    with LOG_LOCK, open(MONITOR_LOG, encoding="utf-8", errors="replace") as f:
+        linhas = f.read().splitlines()[-limite:]
+    desde = (datetime.now() - timedelta(hours=float(horas))).strftime("%Y-%m-%d %H:%M:%S")
+    eventos = []
+    for ln in linhas:
+        try:
+            ev = json.loads(ln)
+        except ValueError:
+            continue
+        if ev.get("quando", "") >= desde:
+            eventos.append(ev)
+    return eventos
+
+
+def resumo_monitor(horas=48):
+    """Agrupa os eventos por passagem (cada subida de caminhão) e diz se deu tudo certo."""
+    eventos = ler_monitor(horas)
+    grupos, sistema = {}, []
+    for ev in eventos:
+        chave = ev.get("passagem") or (f"ticket-{ev['ticket']}" if ev.get("ticket") else None)
+        if not chave:
+            sistema.append(ev)
+            continue
+        g = grupos.setdefault(chave, {"passagem": ev.get("passagem"), "eventos": []})
+        g["eventos"].append(ev)
+    lista = []
+    for chave, g in grupos.items():
+        evs = g["eventos"]
+        entrada = next((e for e in evs if e["tipo"] == "entrada"), None)
+        saida = next((e for e in reversed(evs) if e["tipo"] == "saida"), None)
+        leituras = [e for e in evs if e["tipo"] == "leitura"]
+        confirmada = next((e for e in reversed(evs) if e["tipo"] == "placa_confirmada"), None)
+        tickets = {}
+        for e in evs:
+            if e["tipo"] == "ticket":
+                tickets[e["ticket"]] = dict(tickets.get(e["ticket"], {}), **{k: e.get(k) for k in
+                                            ("ticket", "modo", "acao", "placa", "peso_liquido", "origem", "quando")})
+        problemas = [e for e in evs if e.get("nivel") == "erro"]
+        avisos = [e for e in evs if e.get("nivel") == "aviso"]
+        encerrados = [t for t in tickets.values() if t.get("acao") == "encerrado"]
+        manual = any(t.get("modo") == "MANUAL" for t in tickets.values())
+        if saida and not tickets:
+            situacao = "sem_ticket"
+        elif problemas:
+            situacao = "problema"
+        elif avisos or manual or (tickets and not encerrados):
+            situacao = "atencao"
+        elif encerrados:
+            situacao = "ok"
+        else:
+            situacao = "andamento" if g["passagem"] == PASSAGEM["id"] else "atencao"
+        lista.append({
+            "chave": chave, "passagem": g["passagem"], "inicio": evs[0]["quando"], "fim": evs[-1]["quando"],
+            "entrada": entrada and entrada.get("peso"), "saida": saida and saida.get("quando"),
+            "peso_max": saida and saida.get("peso_max"), "duracao": saida and saida.get("duracao"),
+            "tentativas": saida and saida.get("tentativas"), "leituras": len(leituras),
+            "placa": (confirmada or {}).get("placa") or next((t.get("placa") for t in tickets.values() if t.get("placa")), None)
+                     or (leituras[-1].get("placa") if leituras else None),
+            "placa_vezes": (confirmada or {}).get("vezes"), "placa_confirmada": bool(confirmada),
+            "tickets": list(tickets.values()), "manual": manual, "problemas": len(problemas), "avisos": len(avisos),
+            "situacao": situacao, "simulacao": any(e.get("simulacao") for e in evs), "eventos": evs,
+        })
+    lista.sort(key=lambda g: g["inicio"], reverse=True)
+    sistema.reverse()
+    return {"passagens": lista, "sistema": sistema[:200], "balanca": status_serial(),
+            "agora": {"passagem": PASSAGEM["id"]}}
 
 
 def ler_falhas(limite=300):
@@ -759,8 +1024,14 @@ def ler_placa_camera(novo=False):
     with LEITURAS_LOCK:
         L = LEITURAS
         if novo or L["passagem"] != PASSAGEM["id"] or time.time() - L["em"] > 120:
-            L.update(passagem=PASSAGEM["id"], quadro=None, votos={}, lista=[])
+            if novo and L["passagem"] == PASSAGEM["id"] and PASSAGEM["id"]:
+                monitor("leitura_manual", "Operador apertou \"Ler placa\": a contagem de leituras recomeçou.", nivel="aviso")
+            L.update(passagem=PASSAGEM["id"], quadro=None, votos={}, lista=[], tentativas=0, vazias=0, confirmou=None)
+        L["tentativas"] = L.get("tentativas", 0) + 1
         quadro = resposta.get("quando")
+        nova_leitura = None
+        if not validas and (quadro is None or quadro != L["quadro"]):
+            L["vazias"] = L.get("vazias", 0) + 1
         if validas and (quadro is None or quadro != L["quadro"]):  # a mesma imagem não vota duas vezes
             melhor = max(validas, key=lambda x: x.get("confianca") or 0)
             ch, conf = chave_placa(melhor["texto"]), melhor.get("confianca") or 0
@@ -770,7 +1041,13 @@ def ler_placa_camera(novo=False):
                 v.update(conf=conf, texto=melhor["texto"], foto=resposta.get("foto") or v["foto"])
             L["lista"].append(ch)
             L.update(em=time.time(), quadro=quadro)
+            nova_leitura = (melhor["texto"], conf, v["n"], len(L["lista"]))
+        L["quadro"] = quadro if quadro is not None else L["quadro"]
         votos, lista = {k: dict(v) for k, v in L["votos"].items()}, list(L["lista"])
+    if nova_leitura:
+        txt, conf, n, total = nova_leitura
+        monitor("leitura", f"Câmera leu {txt} ({conf:.0%} de certeza) — {n}ª vez desta placa, {total}ª leitura.",
+                placa_padrao(txt), confianca=round(conf, 2), vezes=n, total=total)
     if not votos:
         return {"placa": None, "leituras": leituras}
 
@@ -798,6 +1075,15 @@ def ler_placa_camera(novo=False):
              vezes=v["n"], total=len(lista))
     if confirmada:
         ULTIMA_PLACA.update(quando=time.time(), r=r, foto=base64.b64decode(v["foto"]) if v["foto"] else None)
+        placa_ok = r.get("placa") or placa_padrao(v["texto"])
+        with LEITURAS_LOCK:
+            primeira = LEITURAS.get("confirmou") != placa_ok
+            LEITURAS["confirmou"] = placa_ok
+        if primeira:
+            cad = (r.get("clientes") or [{}])[0].get("nome") if r.get("clientes") else None
+            monitor("placa_confirmada", f"Placa {placa_ok} confirmada depois de {v['n']} leitura(s) iguais de {len(lista)}"
+                    + (f" — cadastro: {cad}." if cad else " — SEM cadastro."), placa_ok,
+                    nivel="info" if cad or r.get("ticket_aberto") else "aviso", vezes=v["n"], total=len(lista))
     return r
 
 
@@ -1036,12 +1322,14 @@ def avisar_entrada(inicio):
 # Caminhão em cima da balança agora: cada subida é uma "passagem" (identificada pela hora em que entrou).
 # Uma passagem = uma pesagem: enquanto o caminhão não sai, a mesma placa não gera outro ticket.
 PASSAGEM = {"id": None}
+CAMERA_FORA = {"passagem": None}  # para registrar "câmera fora do ar" uma vez só por passagem
 TELA = {"estado": None, "em": 0.0}  # última foto da tela de pesagem deste computador (para o acesso remoto)
 
 
 def vigiar_balanca():
     """Percebe a chegada e a saída do caminhão (peso acima do mínimo da câmera)."""
     vazio_desde = None
+    entrou, peso_max = 0.0, 0
     while True:
         time.sleep(1)
         b = ler_balanca()
@@ -1050,13 +1338,23 @@ def vigiar_balanca():
         minimo = num((CONFIG.get("camera") or {}).get("peso_minimo"))
         if b["peso"] >= (100 if minimo is None else minimo):
             vazio_desde = None
+            peso_max = max(peso_max, b["peso"])
             if not PASSAGEM["id"]:
                 PASSAGEM["id"] = agora_local()
+                entrou, peso_max = time.time(), b["peso"]
+                monitor("entrada", f"Caminhão subiu na balança ({b['peso']:g} kg).", peso=b["peso"])
                 if (CONFIG.get("whatsapp") or {}).get("ativo") and not simulando():
                     threading.Thread(target=avisar_entrada, args=(time.time(),), daemon=True).start()
         else:
             vazio_desde = vazio_desde or time.time()
-            if time.time() - vazio_desde >= 10:  # só conta como saída depois de 10 s vazia
+            if time.time() - vazio_desde >= 10 and PASSAGEM["id"]:  # só conta como saída depois de 10 s vazia
+                with LEITURAS_LOCK:
+                    L = LEITURAS if LEITURAS["passagem"] == PASSAGEM["id"] else {}
+                    tent, vazias = L.get("tentativas", 0), L.get("vazias", 0)
+                    votos = {k: v["n"] for k, v in (L.get("votos") or {}).items()}
+                monitor("saida", f"Caminhão saiu. Peso máximo {peso_max:g} kg, ficou {round(vazio_desde - entrou)} s. "
+                                 f"Câmera tentou ler {tent} vez(es), {vazias} sem achar placa.",
+                        peso_max=peso_max, duracao=round(vazio_desde - entrou), tentativas=tent, vazias=vazias, votos=votos)
                 PASSAGEM["id"] = None
 
 
@@ -2561,6 +2859,31 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _origem(self):
+        if self.headers.get("X-Espelho"):
+            return "internet"
+        return "este computador" if self.client_address[0] in ("127.0.0.1", "::1") else "rede local"
+
+    def _monitor_ticket(self, d, t):
+        """Registra no monitor o ticket gravado (ou a tentativa repetida que foi ignorada)."""
+        if t.get("ja_gravado"):
+            monitor("repetido", f"Pedido repetido do ticket {t['id']} ignorado (já estava gravado).", t.get("placa"),
+                    passagem=t.get("passagem") or PASSAGEM["id"], ticket=t["id"], origem=self._origem())
+            return
+        if d.get("editar"):
+            acao = "editado"
+        elif t.get("status") == "ENCERRADO":
+            acao = "encerrado"
+        else:
+            acao = "aberto"
+        modo = t.get("modo") or "MANUAL"
+        texto = {"aberto": "aberto (1ª pesagem)", "encerrado": "encerrado", "editado": "editado"}[acao]
+        peso = f" — líquido {t['peso_liquido']:g} kg" if acao == "encerrado" and t.get("peso_liquido") is not None else ""
+        monitor("ticket", f"Ticket {t['id']} {texto} no modo {modo} ({self._origem()}){peso}.", t.get("placa"),
+                passagem=t.get("passagem") or (PASSAGEM["id"] if acao != "editado" else None),
+                nivel="aviso" if modo == "MANUAL" and acao != "editado" else "info",
+                ticket=t["id"], modo=modo, acao=acao, peso_liquido=t.get("peso_liquido"), origem=self._origem())
+
     def _corpo(self):
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n).decode("utf-8")) if n else {}
@@ -2588,6 +2911,8 @@ class Handler(BaseHTTPRequestHandler):
     def _executar(self, metodo):
         partes, q = self._rota()
         try:
+            if partes and partes[0].lower() == "peso":  # mesmo endereço do antigo Gateway Virtual (/peso/?fmt=1)
+                return self._json(peso_formato_gateway(ler_balanca()))
             if not partes or partes[0] != "api":
                 return self._arquivo("/".join(partes) or "index.html")
             r = partes[1:]
@@ -2620,6 +2945,12 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({"ok": True})
             if r == ["peso"]:
                 return self._json(ler_balanca())
+            if r == ["balanca"]:
+                return self._json(status_serial())
+            if r == ["balanca", "reconectar"] and metodo == "POST":
+                return self._json(resetar_balanca())
+            if r == ["monitor"]:
+                return self._json(resumo_monitor(num(q.get("horas")) or 48))
 
             if r == ["falhas"]:
                 if metodo == "POST":
@@ -2637,6 +2968,9 @@ class Handler(BaseHTTPRequestHandler):
                     try:
                         return self._json(ler_placa_camera(novo=q.get("novo") == "1"))
                     except (urllib.error.URLError, OSError) as e:
+                        if PASSAGEM["id"] and CAMERA_FORA.get("passagem") != PASSAGEM["id"]:
+                            CAMERA_FORA["passagem"] = PASSAGEM["id"]
+                            monitor("camera", f"Câmera/leitor de placa não respondeu: {e}", nivel="erro")
                         return self._json({"placa": None, "erro": f"Câmera indisponível: {e}"})
                 if r[1:] == ["buscar"]:
                     return self._json(buscar_por_placa(q.get("placa", "")))
@@ -2838,6 +3172,7 @@ class Handler(BaseHTTPRequestHandler):
                 if len(r) == 1 and metodo == "POST":
                     d = self._corpo()
                     t = salvar_ticket(d)
+                    self._monitor_ticket(d, t)
                     if t.get("ja_gravado"):
                         return self._json(t)
                     if d.get("encerrar") and guardar_foto_ticket(t["id"]):
@@ -2877,6 +3212,7 @@ class Handler(BaseHTTPRequestHandler):
                 if metodo == "PUT":
                     d = self._corpo()
                     t = salvar_ticket(d, tid)
+                    self._monitor_ticket(d, t)
                     if t.get("ja_gravado"):
                         return self._json(t)
                     if d.get("encerrar") and not t.get("foto") and guardar_foto_ticket(tid):
@@ -2925,6 +3261,8 @@ class Handler(BaseHTTPRequestHandler):
 
             return self._json({"erro": "rota não encontrada"}, 404)
         except TicketRepetido as e:
+            monitor("repetido", f"Pesagem repetida bloqueada: {e}", (e.ticket or {}).get("placa"), nivel="aviso",
+                    ticket_existente=(e.ticket or {}).get("id"), origem=self._origem())
             return self._json({"erro": str(e), "repetido": e.ticket, "mesma_passagem": e.mesma_passagem}, 409)
         except ValueError as e:
             return self._json({"erro": str(e)}, 400)
@@ -2960,21 +3298,56 @@ def abrir_navegador(url):
     webbrowser.open(url)
 
 
+class ServidorUnico(ThreadingHTTPServer):
+    """No Windows, SO_REUSEADDR deixa dois servidores escutarem a mesma porta (e o antigo atende).
+    Com SO_EXCLUSIVEADDRUSE a segunda cópia não consegue abrir a porta."""
+    allow_reuse_address = False
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
+def ja_aberto(porta):
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{porta}/api/balanca", timeout=2) as r:
+            return r.status == 200
+    except urllib.error.HTTPError:
+        return True  # respondeu: tem um servidor nosso (talvez de versão antiga) nessa porta
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def main():
     if not os.path.exists(caminho_banco()):
         print(f"ERRO: banco de dados não encontrado em {caminho_banco()}")
         print("Ajuste 'banco_dados' no arquivo config.json.")
         input("Enter para sair...")
         return
-    preparar_banco()
     porta = int(CONFIG.get("porta", 8080))
-    srv = ThreadingHTTPServer(("0.0.0.0", porta), Handler)
     url = f"http://127.0.0.1:{porta}/"
+    if ja_aberto(porta):
+        # o sistema já está rodando (janela minimizada ou atrás de outra): só mostra a tela e sai
+        print("O sistema já está aberto neste computador. Abrindo a tela...")
+        if CONFIG.get("abrir_navegador", True):
+            abrir_navegador(url)
+        time.sleep(2)
+        sys.exit(3)
+    preparar_banco()
+    try:
+        srv = ServidorUnico(("0.0.0.0", porta), Handler)
+    except OSError as e:
+        print(f"ERRO: a porta {porta} já está em uso por outro programa ({e}).")
+        time.sleep(5)
+        sys.exit(3)
+    monitor("sistema", f"Sistema iniciado (PID {os.getpid()}).", passagem=None)
     print("=" * 60)
     print(f"  {CONFIG['empresa']} - Sistema de Pesagem")
     print(f"  Abra no navegador: {url}")
     print(f"  Banco de dados:    {caminho_banco()}")
-    print(f"  Balança (API):     {CONFIG['balanca_url']}")
+    sc = cfg_serial()
+    print(f"  Balança:           {('direto na ' + str(sc.get('porta') or 'COM3')) if sc.get('ativo', True) else CONFIG['balanca_url']}")
     print(f"  Backups em:        {pasta_backup()}")
     print("  Para encerrar, feche esta janela.")
     print("=" * 60)
@@ -2982,6 +3355,7 @@ def main():
     for _ in range(max(1, int((CONFIG.get("espelho") or {}).get("conexoes") or 6))):
         threading.Thread(target=trabalhador_espelho, daemon=True).start()
     iniciar_camera()
+    threading.Thread(target=leitor_serial, daemon=True).start()
     threading.Thread(target=vigiar_balanca, daemon=True).start()
     if CONFIG.get("abrir_navegador", True):
         threading.Timer(1.0, abrir_navegador, args=(url,)).start()

@@ -13,7 +13,7 @@ O sistema antigo (Django, porta 8000) continua funcionando ao mesmo tempo.
 | Cadastros (veículo + motorista) | `balanca/db.sqlite3` → tabela `pesagem_cliente` | Lê e edita direto (aba **Cadastros**) |
 | TARA do veículo | campo `peso_maximo` do cadastro | Botão "Usar TARA do cadastro" |
 | Tag do motorista | `user_id` = nome no InControl (ex.: `DOMINGOS - 41`), `card_no` = número (41) | Campo "Identificar" e leitura automática |
-| Peso da balança | API local do indicador WT3000: `http://127.0.0.1:80/peso/?fmt=1` | Display ao vivo + botões "⚖ Balança" |
+| Peso da balança | Leitura direta do indicador WT27R na COM3 (sem o Gateway Virtual) | Display ao vivo + botões "⚖ Balança" |
 | Histórico | tabela `pesagem_pesagem` | Aba **Histórico antigo**; tickets encerrados também são gravados lá |
 
 Os tickets novos ficam na tabela `nova_ticket` do mesmo banco.
@@ -259,3 +259,28 @@ Fica em `config.json`: porta, caminho do banco, URL da balança, nome da empresa
   - Formulários em uma coluna, campos e botões com pelo menos 44 px e letra de 16 px (sem zoom automático no iPhone). Janelas em tela cheia.
   - As tabelas viram cartões em 2 colunas: cada célula recebe `data-label` com o nome da coluna (`rotularTabela`, automático).
 - Não há outro endereço: abrir https://balancatranstino.wcmdigital.com.br no celular já mostra essa versão.
+
+## Balança direto na COM3 (sem o Gateway Virtual) — desde 30/10/2026
+
+- O `servidor.py` lê sozinho o indicador **WT27R** pela COM3 (cabo USB Prolific PL2303), 9600 8N1.
+  O display manda, várias vezes por segundo, a linha `E,BBBBBBB,TTTTTTT,LLLLLLL` + Enter
+  (E = 0 estável / 1 instável; B = bruto; T = tara; L = líquido; `OL` = sobrecarga).
+- Se ficar 5 s sem dado, o sistema fecha e abre a porta de novo sozinho. O botão **🔌 Resetar conexão**
+  (aba Pesagem quando aparece SEM SINAL, e aba Monitor) faz o mesmo na hora.
+- Se o cabo for trocado de porta USB e virar outra COM, o sistema procura o adaptador sozinho;
+  dá para fixar a porta em Configurações → Geral.
+- O antigo endereço `http://127.0.0.1:80/peso/?fmt=1` agora é `http://127.0.0.1:8090/peso/?fmt=1`
+  (mesmo formato; o sistema Django antigo já aponta para ele).
+- O Gateway Virtual e o WTReadWeight foram desinstalados com `ferramentas/remover_gateway_virtual.ps1`.
+  Backup completo (arquivos, configuração e registro do serviço) em `C:\Backups\Weightech_GatewayVirtual_2026-10-30`.
+  Para voltar a usá-lo: reinstalar o Gateway Virtual e, em `config.json`, `"balanca_serial": {"ativo": false}`
+  e `"balanca_url": "http://127.0.0.1:80/peso/?fmt=1"`.
+
+## Monitor das pesagens
+
+- Aba **Monitor**: cada subida de caminhão vira um cartão com tudo o que aconteceu (entrada, cada leitura da
+  placa, confirmação, ticket automático ou manual, pesagem repetida bloqueada, câmera ou balança com problema, saída).
+  Cores: verde = tudo certo; amarelo = atenção (manual, placa sem cadastro, "Ler placa" apertado); vermelho =
+  teve problema ou o caminhão **passou sem ticket**.
+- Arquivo: `logs/monitor.jsonl` (uma linha por evento).
+- Abrir o atalho com o sistema já rodando não abre outra cópia: só mostra a tela e a janela preta fecha sozinha.

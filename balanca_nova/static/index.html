@@ -163,6 +163,21 @@ td.num{text-align:right;font-family:Consolas,monospace}
 .tk:hover{transform:translateY(-2px);border-color:var(--warn)}
 .tk .n{font-size:12px;color:var(--mut)}.tk .p{font-size:20px;font-weight:800;letter-spacing:1px}
 .vazio{color:var(--mut);text-align:center;padding:30px}
+.mon-bal{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.mon-bal .it{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px}
+.mon-bal .it b{display:block;font-size:16px;margin-top:2px}.mon-bal .it span{font-size:11px;color:var(--mut);text-transform:uppercase}
+.mon-bal .quadro{grid-column:1/-1;font-family:Consolas,monospace;font-size:13px;white-space:pre;overflow:auto}.mon-bal .quadro span{display:block;font-family:inherit}
+.mon-leg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.mon-p{border:1px solid var(--line);border-left:5px solid var(--mut);border-radius:12px;margin-bottom:10px;background:var(--card2)}
+.mon-p.ok{border-left-color:var(--acc)}.mon-p.atencao{border-left-color:var(--warn)}.mon-p.problema,.mon-p.sem_ticket{border-left-color:var(--err)}
+.mon-p.andamento{border-left-color:#3987e5}
+.mon-p summary{cursor:pointer;padding:12px 14px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;list-style:none}
+.mon-p summary::-webkit-details-marker{display:none}
+.mon-p summary .pl{font-size:17px;font-weight:700;letter-spacing:1px;min-width:90px}
+.mon-p summary .sit{font-weight:700;font-size:12px}
+.mon-p .tl{margin:0;padding:0 14px 12px 30px;font-size:13px}
+.mon-p .tl li{margin:3px 0}.mon-p .tl li.erro{color:var(--err)}.mon-p .tl li.aviso{color:var(--warn)}.mon-p .tl li.ok{color:var(--acc)}
+.mon-p .tl .h{color:var(--mut);font-family:Consolas,monospace;margin-right:6px}
 /* toast/modal */
 #toasts{position:fixed;right:20px;bottom:20px;z-index:100;display:flex;flex-direction:column;gap:8px}
 .toast{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--blue);padding:12px 16px;border-radius:10px;
@@ -393,6 +408,7 @@ tr.oculto td{opacity:.55}
     <button data-tab="historico">Histórico antigo</button>
     <button data-tab="cadastros">Motoristas</button>
     <button data-tab="empresas">Empresas</button>
+    <button data-tab="monitor">Monitor <span id="nMonitor" class="pill" hidden></span></button>
     <button data-tab="config">Configurações</button>
     <div class="menu-extra" id="menuExtra"></div>
   </nav>
@@ -417,7 +433,8 @@ tr.oculto td{opacity:.55}
       <div class="scale off" id="scale">
         <div class="lbl">Balança <span id="numBal">1</span> · peso bruto</div>
         <div class="valor"><span id="pesoAtual">-----</span><small>kg</small></div>
-        <div class="st"><span class="estavel x" id="estavel">SEM SINAL</span> <span id="balMsg"></span></div>
+        <div class="st"><span class="estavel x" id="estavel">SEM SINAL</span> <span id="balMsg"></span>
+          <button class="btn sm" id="balReset" hidden title="Fecha e abre de novo a porta da balança">🔌 Resetar conexão</button></div>
       </div>
       <div class="cam-box" id="camBox" hidden>
         <img id="camImg" alt="Câmera da balança">
@@ -556,6 +573,27 @@ tr.oculto td{opacity:.55}
   <div class="card">
     <h3>⏳ Aguardando segunda pesagem</h3>
     <div class="abertos" id="listaAbertos"></div>
+  </div>
+</section>
+
+<!-- ================= MONITOR ================= -->
+<section class="tab" id="tab-monitor">
+  <div class="card" id="cardBalanca">
+    <h3>🔌 Conexão com a balança <span class="spacer"></span><button class="btn sm" id="monReset">🔌 Resetar conexão</button></h3>
+    <div class="mon-bal" id="monBal"></div>
+  </div>
+  <div class="card">
+    <h3>📋 Pesagens — como foi cada uma <span class="spacer"></span>
+      <select id="monHoras" style="width:auto"><option value="24">Últimas 24 h</option><option value="48" selected>Últimas 48 h</option>
+        <option value="168">Últimos 7 dias</option><option value="720">Últimos 30 dias</option></select>
+      <button class="btn sm" id="monAtualizar">↻ Atualizar</button></h3>
+    <div class="mon-leg" id="monLeg"></div>
+    <div id="monLista"></div>
+  </div>
+  <div class="card">
+    <h3>⚙️ Sistema e balança (fora das pesagens)</h3>
+    <div class="tbl-wrap" style="max-height:300px;overflow:auto"><table>
+      <thead><tr><th>Quando</th><th>O que aconteceu</th></tr></thead><tbody id="monSistema"></tbody></table></div>
   </div>
 </section>
 
@@ -820,7 +858,10 @@ tr.oculto td{opacity:.55}
         <div class="f"><label>Vias por impressão</label><input id="cfgVias" type="number" min="1" max="5"></div>
         <div class="f" style="flex:2"><label>Impressora da impressão automática</label><select id="cfgImpressora"><option value="">Padrão do Windows</option></select></div>
       </div>
-      <div class="f"><label>URL da API da balança</label><input id="cfgBalUrl"></div>
+      <div class="row">
+        <div class="f"><label>Porta da balança (USB, leitura direta)</label><input id="cfgBalPorta" placeholder="COM3"></div>
+        <div class="f"><label>Sem sinal por (s) → reabre a porta</label><input id="cfgBalSeg" type="number" min="2" max="60"></div>
+      </div>
       <div class="f"><label><input type="checkbox" id="cfgUnica" style="width:auto"> Pesagem única: TARA do cadastro + peso da balança já encerra o ticket (sem 2ª pesagem)</label></div>
       <div class="f"><label><input type="checkbox" id="cfgLegado" style="width:auto"> Gravar tickets encerrados também no histórico do sistema antigo</label></div>
       <div class="f"><label><input type="checkbox" id="cfgKiosk" style="width:auto"> Impressão direta sem janela (abre Chrome com --kiosk-printing; vale ao reiniciar)</label></div>
@@ -1193,7 +1234,8 @@ $('#nav').onclick = e => {
   $$('#nav button[data-tab]').forEach(x => { x.classList.toggle('on', x === b); x.toggleAttribute('aria-current', x === b); });
   $$('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + b.dataset.tab));
   ({dashboard: carregarDashboard, abertos: carregarAbertos, tickets: carregarTickets, relatorios: abrirRelatorios, historico: carregarHist,
-    cadastros: carregarCad, config: carregarCfg, empresas: carregarEmpresasTab, valores: carregarPlanos, faturamento: abrirFaturamento})[b.dataset.tab]?.();
+    cadastros: carregarCad, config: carregarCfg, empresas: carregarEmpresasTab, valores: carregarPlanos, faturamento: abrirFaturamento,
+    monitor: carregarMonitor})[b.dataset.tab]?.();
 };
 function irPara(tab) { $(`#nav button[data-tab="${tab}"]`).click(); }
 
@@ -1215,6 +1257,7 @@ async function lerBalanca() {
     e.textContent = !b.ok ? 'SEM SINAL' : b.estavel ? 'ESTÁVEL' : 'INSTÁVEL';
     $('#balMsg').textContent = b.ok ? (b.modelo || '') : b.mensagem;
     $('#dotBal').className = 'dot ' + (b.ok ? 'ok' : 'err');
+    $('#balReset').hidden = b.ok || b.fonte !== 'serial';
   } catch (e) { $('#dotBal').className = 'dot err'; }
   lerBalanca.ocupado = false;
   cicloCamera();
@@ -3003,7 +3046,7 @@ $('#badgeBkp').onclick = () => { irPara('config'); setTimeout(() => $('#cardBack
 function carregarCfg() {
   $('#cfgEmpresa').value = CFG.empresa; $('#cfgNumBal').value = CFG.numero_balanca; $('#cfgVias').value = CFG.vias_impressao;
   carregarImpressoras(); carregarFalhas();
-  $('#cfgBalUrl').value = CFG.balanca_url; $('#cfgLegado').checked = CFG.registrar_no_historico_antigo; $('#cfgUnica').checked = CFG.pesagem_unica !== false; $('#cfgKiosk').checked = CFG.chrome_impressao_direta;
+  $('#cfgBalPorta').value = CFG.balanca_serial?.porta || 'COM3'; $('#cfgBalSeg').value = CFG.balanca_serial?.segundos_sem_sinal ?? 5; $('#cfgLegado').checked = CFG.registrar_no_historico_antigo; $('#cfgUnica').checked = CFG.pesagem_unica !== false; $('#cfgKiosk').checked = CFG.chrome_impressao_direta;
   $('#cfgBanco').textContent = CFG.banco_absoluto;
   $('#incAtivo').checked = CFG.incontrol.ativo; $('#incUrl').value = CFG.incontrol.url; $('#incUser').value = CFG.incontrol.usuario; $('#incSenha').value = CFG.incontrol.senha;
   $('#bkpAtivo').checked = CFG.backup.ativo; $('#bkpIntervalo').value = CFG.backup.intervalo_horas;
@@ -3022,7 +3065,7 @@ function carregarCfg() {
 async function salvarCfg() {
   CFG = await api('config', {method: 'POST', body: {
     empresa: $('#cfgEmpresa').value, numero_balanca: parseInt($('#cfgNumBal').value) || 1, vias_impressao: parseInt($('#cfgVias').value) || 1, impressora: $('#cfgImpressora').value,
-    balanca_url: $('#cfgBalUrl').value, registrar_no_historico_antigo: $('#cfgLegado').checked, pesagem_unica: $('#cfgUnica').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
+    balanca_serial: {porta: $('#cfgBalPorta').value.trim().toUpperCase() || 'COM3', segundos_sem_sinal: numero($('#cfgBalSeg').value) || 5}, registrar_no_historico_antigo: $('#cfgLegado').checked, pesagem_unica: $('#cfgUnica').checked, chrome_impressao_direta: $('#cfgKiosk').checked,
     incontrol: {ativo: $('#incAtivo').checked, url: $('#incUrl').value, usuario: $('#incUser').value, senha: $('#incSenha').value},
     espelho: {ativo: $('#espAtivo').checked, url: $('#espUrl').value.trim(), token: $('#espToken').value},
     whatsapp: {ativo: $('#whAtivo').checked, enviar_ticket: $('#whTicket').checked, numeros: $('#whNumeros').value.trim(), link: $('#whLink').value.trim()},
@@ -3055,6 +3098,66 @@ async function carregarFalhas() {
   } catch (e) {}
 }
 $('#falhasAtualizar').onclick = carregarFalhas;
+
+// ---------- monitor das pesagens ----------
+const SIT_MON = {ok: ['✅', 'Tudo certo'], atencao: ['⚠️', 'Atenção'], problema: ['❌', 'Teve problema'],
+  sem_ticket: ['🚫', 'Passou SEM ticket'], andamento: ['⏳', 'Na balança agora']};
+const hora = s => String(s || '').slice(11, 19);
+function quadroBalanca(b) {
+  const ok = b.sinal;
+  return `<div class="it"><span>Sinal</span><b style="color:var(--${ok ? 'acc' : 'err'})">${ok ? '🟢 Recebendo' : '🔴 Sem sinal'}</b></div>
+    <div class="it"><span>Porta</span><b>${esc(b.porta || '—')} ${b.aberta ? '(aberta)' : '(fechada)'}</b></div>
+    <div class="it"><span>Último dado há</span><b>${b.ultimo_ha == null ? '—' : b.ultimo_ha + ' s'}</b></div>
+    <div class="it"><span>Leituras recebidas</span><b>${fmt(b.quadros)}</b></div>
+    <div class="it"><span>Leituras com defeito</span><b>${fmt(b.invalidos)}</b></div>
+    <div class="it"><span>Reconexões</span><b>${fmt(b.reconexoes)}</b></div>
+    <div class="it"><span>Aberta desde</span><b>${b.aberta_desde ? dataBR(b.aberta_desde) : '—'}</b></div>
+    ${b.erro ? `<div class="it" style="grid-column:1/-1;color:var(--err)"><span>Erro</span><b style="font-size:13px">${esc(b.erro)}</b></div>` : ''}
+    <div class="it quadro"><span>Último dado do display</span>${esc(b.ultimo_quadro || '—')}</div>`;
+}
+function cartaoPassagem(p) {
+  const [ic, txt] = SIT_MON[p.situacao] || ['•', p.situacao];
+  const tk = p.tickets.map(t => `<span class="pill">Ticket ${t.ticket} · ${t.modo === 'AUTOMATICO' ? '🤖 automático' : '✋ manual'}${t.acao === 'aberto' ? ' · aberto' : ''}</span>`).join('');
+  const leit = p.leituras ? `📷 leu ${p.leituras}x${p.tentativas ? ' em ' + p.tentativas + ' tentativas' : ''}` : (p.tentativas ? `📷 0 leituras em ${p.tentativas} tentativas` : '📷 sem leitura');
+  const placa = p.placa ? esc(p.placa) : '<span class="muted">sem placa</span>';
+  const evs = p.eventos.map(e => `<li class="${esc(e.nivel)}"><span class="h">${hora(e.quando)}</span>${esc(e.msg)}</li>`).join('');
+  return `<details class="mon-p ${p.situacao}"><summary>
+      <span class="pl">${placa}</span><span class="sit">${ic} ${txt}</span>
+      <span class="muted">${dataBR(p.inicio)}${p.saida ? ' → ' + hora(p.saida).slice(0, 5) : ''}</span>
+      ${p.peso_max ? `<span>⚖ ${fmt(p.peso_max)} kg</span>` : ''}
+      <span>${leit}${p.placa_confirmada ? ` · ✔ confirmada (${p.placa_vezes}x igual)` : ''}</span>
+      ${tk}${p.problemas ? `<span class="pill" style="color:var(--err)">${p.problemas} problema(s)</span>` : ''}
+      ${p.simulacao ? '<span class="pill">simulação</span>' : ''}
+    </summary><ol class="tl">${evs}</ol></details>`;
+}
+async function carregarMonitor() {
+  try {
+    const m = await api('monitor?horas=' + $('#monHoras').value);
+    $('#monBal').innerHTML = quadroBalanca(m.balanca);
+    const cont = {};
+    m.passagens.forEach(p => cont[p.situacao] = (cont[p.situacao] || 0) + 1);
+    $('#monLeg').innerHTML = Object.entries(SIT_MON).filter(([k]) => cont[k]).map(([k, [ic, t]]) => `<span class="pill">${ic} ${t}: <b>${cont[k]}</b></span>`).join('');
+    $('#monLista').innerHTML = m.passagens.map(cartaoPassagem).join('') || '<div class="vazio">Nenhuma pesagem registrada neste período (o monitor começou a registrar com esta versão).</div>';
+    $('#monSistema').innerHTML = m.sistema.map(e => `<tr><td>${dataBR(e.quando)}${hora(e.quando).slice(5)}</td><td class="wrap" style="color:${e.nivel === 'erro' ? 'var(--err)' : e.nivel === 'ok' ? 'var(--acc)' : 'inherit'}">${esc(e.msg)}</td></tr>`).join('')
+      || '<tr><td colspan="2" class="vazio">Nada registrado.</td></tr>';
+    const ruins = (cont.problema || 0) + (cont.sem_ticket || 0);
+    $('#nMonitor').hidden = !ruins; $('#nMonitor').textContent = ruins;
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function resetarBalanca(btn) {
+  btn.disabled = true; const t = btn.textContent; btn.textContent = '⏳ Reconectando…';
+  try {
+    const r = await api('balanca/reconectar', {method: 'POST'});
+    toast(r.voltou ? 'Balança reconectada: o peso voltou. 👍' : `Porta reaberta, mas ainda sem sinal do display. ${r.erro ? esc(r.erro) : 'Confira se o indicador está ligado e o cabo USB.'}`, r.voltou ? 'ok' : 'err');
+  } catch (e) { toast(e.message, 'err'); }
+  btn.disabled = false; btn.textContent = t;
+  if ($('#tab-monitor').classList.contains('on')) carregarMonitor();
+}
+$('#monReset').onclick = e => resetarBalanca(e.currentTarget);
+$('#balReset').onclick = e => resetarBalanca(e.currentTarget);
+$('#monAtualizar').onclick = carregarMonitor;
+$('#monHoras').onchange = carregarMonitor;
+setInterval(() => { if ($('#tab-monitor').classList.contains('on') && !document.querySelector('.mon-p[open]')) carregarMonitor(); }, 5000);
 const ESTADO_WHATS = {conectado: '🟢 WhatsApp Web conectado', conversa: '🟢 WhatsApp Web conectado', pronto: '🟢 WhatsApp Web conectado',
   qr: '🟡 WhatsApp Web desconectado — escaneie o QR code na aba do WhatsApp', carregando: '⏳ WhatsApp Web carregando…',
   invalido: '🟢 WhatsApp Web conectado', enviando: '📤 WhatsApp Web enviando…', fechado: '⚪ WhatsApp Web não está aberto no Chrome (ou a extensão da balança não está instalada)'};

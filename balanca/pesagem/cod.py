@@ -27,7 +27,7 @@ url_base = "http://{}/cgi-bin/recordFinder.cgi".format(device_ip)
 digest_auth = requests.auth.HTTPDigestAuth(username, password)
 
 API_BASE_URL = f"http://{device_ip}/cgi-bin"
-LOCAL_API_URL = "http://127.0.0.1:80/peso/?fmt=1"
+LOCAL_API_URL = "http://127.0.0.1:8090/peso/?fmt=1"  # o sistema novo lê a COM3 e serve o peso (antes: Gateway Virtual na porta 80)
 
 def verificar_conexao_balanca():
     # Listar portas COM disponíveis e verificar conexão com a balança
