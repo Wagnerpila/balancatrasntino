@@ -73,7 +73,7 @@ DEFAULT_CONFIG = {
         "url": "rtsp://192.168.100.29:554/",
         "usuario": "admin",
         "senha": "",
-        "peso_minimo": 100,
+        "peso_minimo": 1000,
         "ler_placa": True,
         "pesagem_automatica": True,
         "imprimir_automatico": False,
@@ -1336,7 +1336,7 @@ def vigiar_balanca():
         if not b["ok"] or b["peso"] is None:
             continue
         minimo = num((CONFIG.get("camera") or {}).get("peso_minimo"))
-        if b["peso"] >= (100 if minimo is None else minimo):
+        if b["peso"] >= (1000 if minimo is None else minimo):
             vazio_desde = None
             peso_max = max(peso_max, b["peso"])
             if not PASSAGEM["id"]:

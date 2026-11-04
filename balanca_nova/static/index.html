@@ -1450,7 +1450,7 @@ function cicloCamera() {
   const cm = CFG.camera, b = ESTADO.peso;
   if (!cm?.ativo) { $('#camBox').hidden = true; return; }
   if (!b?.ok || b.peso === null || b.peso === undefined) return;  // falha de leitura não é balança vazia
-  const noPeso = b.peso >= (cm.peso_minimo ?? 100);
+  const noPeso = b.peso >= (cm.peso_minimo ?? 1000);
   if (noPeso) CAM.vazioDesde = 0;
   else if (CAM.fase === 'feito' && (CAM.vazioDesde = CAM.vazioDesde || Date.now()) > Date.now() - 5000) return;  // só conta como saída depois de 5 s vazia
   if (!noPeso) {  // balança vazia: esconde a câmera e prepara o próximo caminhão
@@ -1925,7 +1925,7 @@ async function carregarPatio() {
 }
 async function finalizarDoPatio(id) {
   await carregarTicketNoForm(id); carregarPatio();
-  const b = ESTADO.peso, min = CFG.camera?.peso_minimo ?? 100;
+  const b = ESTADO.peso, min = CFG.camera?.peso_minimo ?? 1000;
   if (b?.ok && b.peso >= min) capturar('#pesoFinal');  // caminhão já está na balança: traz o peso final
   $('#pesoFinal').scrollIntoView({behavior: 'smooth', block: 'center'});
 }
@@ -2520,7 +2520,7 @@ function sincronizarCadastro(c, novo) {
   calcular();
   toast(`🔄 Pesagem atualizada com o cadastro <b>${esc(c.nome)}</b>${pesagemUnica() && c.tara ? ` · TARA ${fmt(c.tara)} kg` : ''}`, 'ok');
   // automático tinha parado (placa sem cadastro / sem TARA) e o veículo continua na balança: retoma
-  const b = ESTADO.peso, naBalanca = b?.ok && b.peso >= (CFG.camera?.peso_minimo ?? 100);
+  const b = ESTADO.peso, naBalanca = b?.ok && b.peso >= (CFG.camera?.peso_minimo ?? 1000);
   if (CFG.camera?.ativo && CFG.camera.pesagem_automatica && CAM.fase === 'feito' && naBalanca && CAM.placa
       && chavePlaca(CAM.placa) === chavePlaca(c.placa) && (!pesagemUnica() || c.tara)) {
     Object.assign(CAM, {fase: 'estavel', desde: Date.now(), entrada: Date.now(), estavelDesde: null, alertaInst: false});
@@ -3072,7 +3072,7 @@ async function salvarCfg() {
     backup: {ativo: $('#bkpAtivo').checked, intervalo_horas: parseFloat($('#bkpIntervalo').value) || 6,
              manter: parseInt($('#bkpManter').value) || 60, pasta: $('#bkpPasta').value.trim() || 'backups'},
     camera: {ativo: $('#camAtivo').checked, url: $('#camUrl').value.trim(), usuario: $('#camUser').value.trim(), senha: $('#camSenha').value,
-             peso_minimo: numero($('#camMin').value) ?? 100, segundos_captura: numero($('#camSeg').value) || 10,
+             peso_minimo: numero($('#camMin').value) ?? 1000, segundos_captura: numero($('#camSeg').value) || 10,
              ler_placa: $('#camLerPlaca').checked, pesagem_automatica: $('#camAuto').checked, imprimir_automatico: $('#camImp').checked}}});
   ultimaChaveTag = null; atualizarResumo(); carregarBackups();
 }
