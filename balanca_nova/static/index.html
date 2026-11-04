@@ -93,6 +93,8 @@ label{display:block;font-size:12px;color:var(--mut);margin:0 0 4px;font-weight:6
 input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);outline:none;transition:.15s}
 input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(88,166,255,.18)}
 input.peso{font:700 22px Consolas,monospace;text-align:right}
+input.peso.vivo{border-color:#22c55e;box-shadow:0 0 0 2px rgba(34,197,94,.25)}
+input.peso.vivo.inst{border-color:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,.25)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:10px;border:1px solid var(--line);
   background:var(--card2);cursor:pointer;font-weight:600;white-space:nowrap;transition:.15s}
 .btn:hover{border-color:var(--mut)}
@@ -1260,7 +1262,28 @@ async function lerBalanca() {
     $('#balReset').hidden = b.ok || b.fonte !== 'serial';
   } catch (e) { $('#dotBal').className = 'dot err'; }
   lerBalanca.ocupado = false;
+  acompanharPeso();
   cicloCamera();
+}
+// o campo do peso da balança acompanha a telinha ao vivo enquanto há uma pesagem na tela
+// (para quando o operador digita à mão ou quando a pesagem é gravada)
+function campoAoVivo() {
+  return (pesagemUnica() || ESTADO.ticket) ? $('#pesoFinal') : $('#pesoInicial');
+}
+function acompanharPeso() {
+  if (MODO_IMG) return;
+  const outro = campoAoVivo() === $('#pesoFinal') ? $('#pesoInicial') : $('#pesoFinal');
+  outro.classList.remove('vivo', 'inst');
+  const el = campoAoVivo(), b = ESTADO.peso;
+  const ativo = !ESTADO.concluido && !SALVANDO &&
+    !!(ESTADO.cliente || ESTADO.ticket || $('#placa').value.trim() || ['placa', 'estavel', 'contagem'].includes(CAM.fase));
+  const seguir = ativo && (!el.dataset.origem || el.dataset.origem === 'balança');
+  if (!seguir) { el.classList.remove('vivo', 'inst'); return; }
+  const novo = (b && b.ok && b.peso > 0) ? String(b.peso) : '';
+  if (el.value !== novo) { el.value = novo; calcular(); }
+  if (novo) el.dataset.origem = 'balança'; else delete el.dataset.origem;
+  el.classList.toggle('vivo', !!novo); el.classList.toggle('inst', !!novo && !b.estavel);
+  el.title = novo ? 'Acompanhando o peso da balança ao vivo' + (b.estavel ? '' : ' (INSTÁVEL)') : '';
 }
 setInterval(lerBalanca, 1000); lerBalanca();
 
@@ -1690,7 +1713,11 @@ function imprimirTicket(t) {
 }
 async function salvar(encerrar, semImprimir, manterNaTela, modo = 'MANUAL') {
   if (ESTADO.concluido) { imprimirTicket(ESTADO.concluido); return; }  // pesagem já encerrada na tela: o botão só reimprime
-  if (SALVANDO || !validar(encerrar)) return;
+  if (SALVANDO) return;
+  acompanharPeso();  // grava o peso que está na balança agora, não o de alguns segundos atrás
+  const vivo = campoAoVivo();
+  if (vivo.classList.contains('vivo') && ESTADO.peso && !ESTADO.peso.estavel) toast('Atenção: peso gravado com balança INSTÁVEL.', 'warn');
+  if (!validar(encerrar)) return;
   const d = dadosForm(); d.encerrar = encerrar; d.modo = modo; d.chave = ESTADO.chave = ESTADO.chave || novaChave();
   SALVANDO = true; $('#btnEncerrar').disabled = $('#btnAbrir').disabled = true;
   try {
